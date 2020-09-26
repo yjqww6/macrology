@@ -343,11 +343,11 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
     [(_ an-x id in)
      #`(let ([x '(2)])
          #,(apply-expander (syntax-local-value #'id) #'(an-x))
-         an-x)]))
+         (in an-x))]))
 
 (define-syntax (expander1 stx)
   (syntax-case stx ()
-    [(an-x) #'(define an-x '(2))]))
+    [(an-x) #'(define an-x '(3))]))
 
 (use-expander x expander1 car)
 ```
@@ -364,11 +364,11 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
     [(_ an-x id in)
      #`(let ([x '(2)])
          (id an-x)
-         an-x)]))
+         (in an-x))]))
 
 (define-syntax (expander1 stx)
   (syntax-case stx ()
-    [(_ an-x) #'(define an-x '(2))]))
+    [(_ an-x) #'(define an-x '(3))]))
 
 (use-expander x expander1 car)
 ```
