@@ -127,13 +127,15 @@
          (#%variable-reference)))
       (syntax-case (syntax-disarm expanded insp) (let-values)
         [(let-values ([(x) rhs]) body ...)
-         #'(let ([x (box rhs)])
-             (let-syntax ([x (make-set!-transformer
-                              (lambda (stx)
-                                (syntax-case stx (set!)
-                                  [(set! id v) #'(set-box! x v)]
-                                  [id (identifier? #'id)  #'(unbox x)])))])
-               body ...))])])]
+         (syntax-rearm
+          #'(let ([x (box rhs)])
+              (let-syntax ([x (make-set!-transformer
+                               (lambda (stx)
+                                 (syntax-case stx (set!)
+                                   [(set! id v) #'(set-box! x v)]
+                                   [id (identifier? #'id)  #'(unbox x)])))])
+                body ...))
+          expanded)])])]
   [form
    #'(#%expression form)])
 ```
