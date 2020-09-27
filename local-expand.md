@@ -85,3 +85,78 @@
 在对结果进行操作时，如果只对最外层的名字进行检测不把拆开的结果返回，或者只拆开`begin` `begin-for-syntax` `#%plain-module-begin` `define-values` `define-syntaxes`，则不需要syntax-disarm。
 
 如果还要再进一步拆开里面的syntax object，需要先对其使用syntax-disarm，再对返回值使用syntax-rearm。inspector使用module声明时的inspector，可通过`(variable-reference->module-declaration-inspector (#%variable-reference))`获得。
+
+## 使用示例
+
+如果要写这样一个宏`(let-box ([x rhs]) body ...)`：如果x在body里没有被set!过，那么就跟普通的let一样；如果被set!过了，那么x被放到box里，并且所有对x的引用变成unbox ，所有对x的赋值变成set-box!。
+
+应该怎么写呢？
+
+1. x有没有set!过，需要body完全展开之后才能得知，所以需要用local-expand进行完全展开
+
+2. 这个宏是生成表达式的，所以延迟到expression context
+3. 要记录set!的情况，可以把x的名字绑定到一个set!-transformer，在里面通知let-box。这个过程可以用3d syntax简单地完成。
+4. 因为没有被set!的情况下等于普通的let，可以利用syntax-local-expand-expression进行优化。
+5. 被set!过了的话，要对展开结果进行修改，因此需要syntax-disarm。
+
+终上所述，let-box写出来如下：
+
+```racket
+#lang racket
+(require syntax/parse/define)
+
+(define-syntax-parser let-box
+  [(_ ([x:id rhs]) body ...+)
+   #:when (eq? (syntax-local-context) 'expression)
+   #:do [(define setted? #f)]
+   #:with proc (datum->syntax #f (λ () (set! setted? #t)))
+   #:do [(define-values (expanded opaque) 
+           (syntax-local-expand-expression
+            #'(let ([x rhs])
+                (let-syntax ([x (make-set!-transformer
+                                 (lambda (stx)
+                                   (syntax-case stx (set!)
+                                     [(set! id v) (begin ('proc) #'(set! x v))]
+                                     [id (identifier? #'id)  #'x])))])
+                  body ...))))]
+   (cond
+     [(not setted?) opaque]
+     [else
+      (define insp
+        (variable-reference->module-declaration-inspector
+         (#%variable-reference)))
+      (syntax-case (syntax-disarm expanded insp) (let-values)
+        [(let-values ([(x) rhs]) body ...)
+         #'(let ([x (box rhs)])
+             (let-syntax ([x (make-set!-transformer
+                              (lambda (stx)
+                                (syntax-case stx (set!)
+                                  [(set! id v) #'(set-box! x v)]
+                                  [id (identifier? #'id)  #'(unbox x)])))])
+               body ...))])])]
+  [form
+   #'(#%expression form)])
+```
+
+使用如下：
+
+```racket
+> (let-box ([x 1])
+           x)
+1
+> (let-box ([x 1])
+           (set! x 2)
+           x)
+2
+> (syntax->datum (expand '(let-box ([x 1])
+                                   x)))
+'(#%expression (let-values (((x) '1)) (let-values () (let-values () x))))
+> (syntax->datum (expand '(let-box ([x 1])
+                                   (set! x 2)
+                                   x)))
+'(#%expression
+  (let-values (((x) (#%app box '1)))
+    (let-values ()
+      (let-values () (let-values () (let-values () (#%app set-box! x '2) (#%app unbox x)))))))
+```
+
