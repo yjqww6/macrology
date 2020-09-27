@@ -15,7 +15,7 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 
 ### 一些用法
 
-* TODO local-expand该怎么用
+* [local-expand该怎么用](https://github.com/yjqww6/macrology/blob/master/local-expand.md)
 * TODO Syntax Property有什么应用
 * TODO The Racket Reference中Syntax Transformers一节提到的特性都有什么用
 
