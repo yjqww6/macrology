@@ -252,6 +252,23 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 那为什么在B里又变回3了？因为use-expander的定义和使用不在同一definition context了，所以也就都没有use-site scope了。
 
+可以认为上面对local-apply-transformer的使用效果类似于
+
+```rack
+(begin-for-syntax
+  ;;只反转macro-introduction scope
+  (define (macro-scope-introducer)
+    (make-syntax-delta-introducer
+     (syntax-local-identifier-as-binding
+      (syntax-local-introduce #'x))
+     #'x))
+  (define (apply-expander proc stx)
+    (define macro-introducer (macro-scope-introducer))
+    (define introducer (make-syntax-introducer))
+    (define intro-stx  (introducer (macro-introducer stx)))
+    (macro-introducer (introducer (proc intro-stx)))))
+```
+
 实际上，在此文写下的时间点，Racket标准库里也有这个问题：
 
 ```racket
