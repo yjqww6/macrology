@@ -94,7 +94,7 @@
 
 1. x有没有set!过，需要body完全展开之后才能得知，所以需要用local-expand进行完全展开
 
-2. 这个宏是生成表达式的，所以延迟到expression context
+2. 需要完全展开，所以延迟到expression context
 3. 要记录set!的情况，可以把x的名字绑定到一个set!-transformer，在里面通知let-box。这个过程可以用3d syntax简单地完成。
 4. 因为没有被set!的情况下等于普通的let，可以利用syntax-local-expand-expression进行优化。
 5. 被set!过了的话，要对展开结果进行修改，因此需要syntax-disarm。
