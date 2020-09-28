@@ -254,7 +254,7 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 可以认为上面对local-apply-transformer的使用效果类似于
 
-```rack
+```racket
 (begin-for-syntax
   ;;只反转macro-introduction scope
   (define (macro-scope-introducer)
