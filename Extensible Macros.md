@@ -392,6 +392,22 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 这次则是3了。
 
+可以认为上面对local-apply-transformer的使用效果类似于
+```racket
+(begin-for-syntax
+  (define (macro-scope-introducer)
+    (make-syntax-delta-introducer
+     (syntax-local-identifier-as-binding
+      (syntax-local-introduce #'x))
+     #'x))
+  (define (apply-expander proc stx)
+    (define macro-introducer (macro-scope-introducer))
+    (define introducer (make-syntax-introducer))
+    (define use-site-introducer (make-syntax-introducer #t))
+    (define intro-stx  (use-site-introducer (introducer (macro-introducer stx))))
+    (macro-introducer (introducer (proc intro-stx)))))
+```
+
 ## 结论
 
 对于这个问题，现在仍没有完美的解决方案。
