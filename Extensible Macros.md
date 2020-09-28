@@ -339,60 +339,14 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 这两个问题归根到底都是local-expand的问题，似乎可能通过把宏写成cps形式回避，但相信没人会愿意这么写吧。
 
+### 如果添加use-site scope
+
 另一方面，如果把local-apply-transformer从expression context换到internal definition context，则会无条件引入use-site scope。
 
-确实，如果这么修改，A和B都能得到1。
+这么修改，A和B都能得到1。
 
-但这并不意味着完全对了。看程序C：
+可以认为效果类似于
 
-```racket
-#lang racket
-(require (for-syntax syntax/apply-transformer syntax/context))
-
-(begin-for-syntax
-  (define (apply-expander proc stx)
-    (local-apply-transformer proc stx (generate-expand-context))))
-
-(define x '(1))
-
-(define-syntax (use-expander stx)
-  (syntax-case stx ()
-    [(_ an-x id in)
-     #`(let ([x '(2)])
-         #,(apply-expander (syntax-local-value #'id) #'(an-x))
-         (in an-x))]))
-
-(define-syntax (expander1 stx)
-  (syntax-case stx ()
-    [(an-x) #'(define an-x '(3))]))
-
-(use-expander x expander1 car)
-```
-
-这里还是得到1。然而对于普通宏，
-
-```racket
-#lang racket
-
-(define x '(1))
-
-(define-syntax (use-expander stx)
-  (syntax-case stx ()
-    [(_ an-x id in)
-     #`(let ([x '(2)])
-         (id an-x)
-         (in an-x))]))
-
-(define-syntax (expander1 stx)
-  (syntax-case stx ()
-    [(_ an-x) #'(define an-x '(3))]))
-
-(use-expander x expander1 car)
-```
-
-这次则是3了。
-
-可以认为上面对local-apply-transformer的使用效果类似于
 ```racket
 (begin-for-syntax
   (define (macro-scope-introducer)
@@ -408,13 +362,79 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
     (macro-introducer (introducer (proc intro-stx)))))
 ```
 
+
+
+但这并不意味着完全对了。在可扩展的宏中，模式匹配一类，也即是需要引入绑定的，的是最常见的。
+
+```racket
+#lang racket
+(require (for-syntax syntax/apply-transformer syntax/context))
+
+(begin-for-syntax
+  (define (apply-expander proc stx)
+    (local-apply-transformer proc stx (generate-expand-context))))
+
+(define x '(1))
+
+(define-syntax (use-expander stx)
+  (syntax-case stx ()
+    [(_ an-x id in)
+     #`(let-values (#,(apply-expander (syntax-local-value #'id) #'an-x))
+         in)]))
+
+(define-syntax (expander1 stx)
+  (syntax-case stx ()
+    [an-x #'[(an-x) '(2)]]))
+
+(use-expander x expander1 (car x))
+```
+
+这里还是得到1，但是期望应该是2。
+
+因为在绑定的位置引入了use-site scope，导致expander1的x没能绑定到`(car x)`中的x。
+
+syntax-local-identifier-as-binding可以消除use-site scope，所以如果事先知道结果的形状，还是有可能解决问题的：
+
+```racket
+#lang racket
+(require (for-syntax syntax/apply-transformer syntax/context
+                     syntax/stx))
+
+(begin-for-syntax
+  (define (apply-expander proc stx)
+    (local-apply-transformer proc stx (generate-expand-context))))
+
+(define x '(1))
+
+(define-syntax (use-expander stx)
+  (syntax-case stx ()
+    [(_ an-x id in)
+     #`(let-values (#,(syntax-case (apply-expander (syntax-local-value #'id) #'an-x) ()
+                        [[(x ...) rhs]
+                         (with-syntax ([(x ...)
+                                        (stx-map syntax-local-identifier-as-binding #'(x ...))])
+                           #'[(x ...) rhs])]))
+         in)]))
+
+(define-syntax (expander1 stx)
+  (syntax-case stx ()
+    [an-x #'[(an-x) '(2)]]))
+
+(use-expander x expander1 (car x))
+```
+
+但是，对于不可预测的展开，就需要把syntax-local-identifier-as-binding放到expander1里，这或许令人难以接受。
+
 ## 结论
 
 对于这个问题，现在仍没有完美的解决方案。
 
-如果不考虑C那样展开为define的情况，可能 `(local-apply-transformer proc stx (generate-expand-context))` 是比较合适的解法。
+* 如果不需要引入绑定， `(local-apply-transformer proc stx (generate-expand-context))` 比较合适。
+* 如果需要引入绑定，
+  * 可以接受一些风险，可以使用 `(local-apply-transformer proc stx 'expression)` ；
+  * 如果能忍受一些麻烦，可以用 `(local-apply-transformer proc stx (generate-expand-context))` 配合syntax-local-identifier-as-binding。
 
-最终的解决方案可能类似于 <https://github.com/racket/racket/pull/2237> ，但似乎凉了。
+其他的解决方案有 <https://github.com/racket/racket/pull/2237> ，但似乎凉了。
 
 ## 其他相关问题
 
