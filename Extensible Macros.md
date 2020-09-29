@@ -423,7 +423,88 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 (use-expander x expander1 (car x))
 ```
 
-但是，对于不可预测的展开，就需要把syntax-local-identifier-as-binding放到expander1里，这或许令人难以接受。
+这个方案其实就是 <https://github.com/racket/racket/pull/2237> 。
+
+
+
+但是，对于不可预测的展开，情况就比较复杂了。考虑可以引入定义的展开（例如syntax-parse的`~do`）：
+
+```rack
+#lang racket
+(require (for-syntax syntax/apply-transformer syntax/context))
+
+(begin-for-syntax
+  (define (apply-expander proc stx)
+    (local-apply-transformer proc stx (generate-expand-context))))
+
+(define x '(1))
+
+(define-syntax (use-expander stx)
+  (syntax-case stx ()
+    [(_ [defs ...] id in)
+     #`(let ([x '(2)])
+         #,(apply-expander (syntax-local-value #'id) #'(id defs ...))
+         in)]))
+
+(define-syntax (expander1 stx)
+  (syntax-case stx ()
+    [(id defs ...) #'(begin defs ...)]))
+
+(use-expander [(define x 3)] expander1 x)
+```
+
+这里结果是1，但期望应该是3。一种修复方法是再使用部分展开
+
+```rac
+#lang racket
+(require (for-syntax syntax/apply-transformer syntax/context
+                     syntax/kerncase syntax/stx))
+
+(begin-for-syntax
+  (define (apply-expander proc stx)
+    (local-apply-transformer proc stx (generate-expand-context)))
+
+  (define (remove-binder-use-site stx)
+    (define ctx (syntax-local-make-definition-context #f #f))
+    (define c (generate-expand-context))
+    (define (expand stx)
+      (local-expand stx c (kernel-form-identifier-list) ctx))
+    (let loop ([stx (expand stx)])
+      (syntax-case stx (define-values define-syntaxes begin)
+        [(begin form ...)
+         (with-syntax ([(form ...) (stx-map (compose loop expand) #'(form ...))])
+           #'(begin form ...))]
+        [(define-values (id ...) expr)
+         (begin
+           (syntax-local-bind-syntaxes (syntax->list #'(id ...)) #f ctx)
+           (with-syntax ([(id ...) (stx-map syntax-local-identifier-as-binding #'(id ...))])
+             #'(define-values (id ...) expr)))]
+        [(define-syntaxes (id ...) expr)
+         (with-syntax ([expr (local-transformer-expand #'expr 'expression null)])
+           (syntax-local-bind-syntaxes (syntax->list #'(id ...)) #'expr ctx)
+           (with-syntax ([(id ...) (stx-map syntax-local-identifier-as-binding #'(id ...))])
+             #'(define-syntaxes (id ...) expr)))]
+        [_ stx])))
+  )
+
+(define x '(1))
+
+(define-syntax (use-expander stx)
+  (syntax-case stx ()
+    [(_ [defs ...] id in)
+     #`(let ([x '(2)])
+         #,(remove-binder-use-site
+            (apply-expander (syntax-local-value #'id) #'(id defs ...)))
+         in)]))
+
+(define-syntax (expander1 stx)
+  (syntax-case stx ()
+    [(id defs ...) #'(begin defs ...)]))
+
+(use-expander [(define x 3)] expander1 x)
+```
+
+这种方法需要仔细区分各种expander预期的上下文。
 
 ## 结论
 
@@ -433,8 +514,6 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 * 如果需要引入绑定，
   * 可以接受一些风险，可以使用 `(local-apply-transformer proc stx 'expression)` ；
   * 如果能忍受一些麻烦，可以用 `(local-apply-transformer proc stx (generate-expand-context))` 配合syntax-local-identifier-as-binding。
-
-其他的解决方案有 <https://github.com/racket/racket/pull/2237> ，但似乎凉了。
 
 ## 其他相关问题
 
