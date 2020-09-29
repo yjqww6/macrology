@@ -368,7 +368,7 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 ```racket
 #lang racket
-(require (for-syntax syntax/apply-transformer syntax/context))
+(require (for-syntax syntax/apply-transformer))
 
 (begin-for-syntax
   (define (apply-expander proc stx)
@@ -397,8 +397,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 ```racket
 #lang racket
-(require (for-syntax syntax/apply-transformer syntax/context
-                     syntax/stx))
+(require (for-syntax syntax/apply-transformer syntax/stx))
 
 (begin-for-syntax
   (define (apply-expander proc stx)
@@ -431,18 +430,18 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 ```racket
 #lang racket
-(require (for-syntax syntax/apply-transformer syntax/context))
+(require (for-syntax syntax/apply-transformer))
 
 (begin-for-syntax
   (define (apply-expander proc stx)
     (local-apply-transformer proc stx (list (gensym)))))
 
-(define x '(1))
+(define x 1)
 
 (define-syntax (use-expander stx)
   (syntax-case stx ()
     [(_ [defs ...] id in)
-     #`(let ([x '(2)])
+     #`(let ([x 2])
          #,(apply-expander (syntax-local-value #'id) #'(id defs ...))
          in)]))
 
@@ -457,7 +456,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 ```racket
 #lang racket
-(require (for-syntax syntax/apply-transformer syntax/context
+(require (for-syntax syntax/apply-transformer
                      syntax/kerncase syntax/stx))
 
 (begin-for-syntax
@@ -487,12 +486,12 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
         [_ stx])))
   )
 
-(define x '(1))
+(define x 1)
 
 (define-syntax (use-expander stx)
   (syntax-case stx ()
     [(_ [defs ...] id in)
-     #`(let ([x '(2)])
+     #`(let ([x 2])
          #,(remove-binder-use-site
             (apply-expander (syntax-local-value #'id) #'(id defs ...)))
          in)]))
