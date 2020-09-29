@@ -429,7 +429,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 但是，对于不可预测的展开，情况就比较复杂了。考虑可以引入定义的展开（例如syntax-parse的`~do`）：
 
-```rack
+```racket
 #lang racket
 (require (for-syntax syntax/apply-transformer syntax/context))
 
@@ -455,7 +455,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 这里结果是1，但期望应该是3。一种修复方法是再使用部分展开
 
-```rac
+```racket
 #lang racket
 (require (for-syntax syntax/apply-transformer syntax/context
                      syntax/kerncase syntax/stx))
