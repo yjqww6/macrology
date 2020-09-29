@@ -372,7 +372,7 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的macro-intro
 
 (begin-for-syntax
   (define (apply-expander proc stx)
-    (local-apply-transformer proc stx (generate-expand-context))))
+    (local-apply-transformer proc stx (list (gensym)))))
 
 (define x '(1))
 
@@ -402,7 +402,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 (begin-for-syntax
   (define (apply-expander proc stx)
-    (local-apply-transformer proc stx (generate-expand-context))))
+    (local-apply-transformer proc stx (list (gensym)))))
 
 (define x '(1))
 
@@ -435,7 +435,7 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 (begin-for-syntax
   (define (apply-expander proc stx)
-    (local-apply-transformer proc stx (generate-expand-context))))
+    (local-apply-transformer proc stx (list (gensym)))))
 
 (define x '(1))
 
@@ -462,11 +462,11 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 (begin-for-syntax
   (define (apply-expander proc stx)
-    (local-apply-transformer proc stx (generate-expand-context)))
+    (local-apply-transformer proc stx (list 'gensym)))
 
   (define (remove-binder-use-site stx)
     (define ctx (syntax-local-make-definition-context #f #f))
-    (define c (generate-expand-context))
+    (define c (list 'gensym))
     (define (expand stx)
       (local-expand stx c (kernel-form-identifier-list) ctx))
     (let loop ([stx (expand stx)])
@@ -510,10 +510,10 @@ syntax-local-identifier-as-binding可以消除use-site scope，所以如果事�
 
 对于这个问题，现在仍没有完美的解决方案。
 
-* 如果不需要引入绑定， `(local-apply-transformer proc stx (generate-expand-context))` 比较合适。
+* 如果不需要引入绑定， `(local-apply-transformer proc stx (list (gensym)))` 比较合适。
 * 如果需要引入绑定，
   * 可以接受一些风险，可以使用 `(local-apply-transformer proc stx 'expression)` ；
-  * 如果能忍受一些麻烦，可以用 `(local-apply-transformer proc stx (generate-expand-context))` 配合syntax-local-identifier-as-binding。
+  * 如果能忍受一些麻烦，可以用 `(local-apply-transformer proc stx (list (gensym)))` 配合syntax-local-identifier-as-binding。
 
 ## 其他相关问题
 
