@@ -78,7 +78,7 @@
 
 部分展开的情况就比较混乱了，没有固定的用法，这里只能简单总结一下。
 
-* 在internal definition context展开的情况，一般是配合first class internal definition context使用，stop-ids至少应包括define-values、define-syntaxes和begin。
+* 在internal definition context展开的情况，一般是配合first class internal definition context使用，stop-ids至少应包括define-values、define-syntaxes和begin。详细可见[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)。
 
 ## 什么时候要对local-expand的结果用syntax-disarm
 
