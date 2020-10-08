@@ -116,7 +116,7 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 
 这种情况可以用with-disappeared-uses：
 
-```rcket
+```racket
 (define-syntax (use-expander stx)
   (syntax-case stx ()
     [(_ id in)
