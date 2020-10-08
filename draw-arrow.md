@@ -217,16 +217,40 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 
 ## 其他情况
 
-其他情况也有，但由于不常见，这里不展开讨论。
-
 * 如果要把local-expand的结果拆出一部分，原有的syntax-property可能会遗失。
-
-  可以考虑使用syntax-track-origin，见[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)。
-
-* 如果使用first class intdef-ctx展开时，引入的定义不出现在结果中，可以用internal-definition-context-track。
-
 * 像struct那样引入名字由多个输入组合而成的定义的情况，需要添加sub-range-binders属性
 
+参考[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)：
+
+```racket
+    (define-syntax-rule (syntax/track form)
+      (syntax-case this-syntax ()
+        [(head . _) (syntax-track-origin #'form this-syntax #'head)]))]
+ ...
+       [(begin form ...)
+        #:with (expanded-form ...) (stx-map loop #'(form ...))
+        (syntax/track (begin expanded-form ...))]
+ ...
+```
+
+这里使用了syntax-track-origin来复制原有的syntax property，而原来的begin则被添加到origin属性中了。如果要继续添加disappeared-use，需要与原来的信息组合，类似于：
+
+```racket
+(syntax-property v
+ 'disappeared-use
+ (cons (syntax-local-introduce #'id)
+       (or (syntax-property v 'disappeared-use) null)))
+```
+
+
+
+至于sub-range-binders属性的用法比较简单，可以直接看The Racket Reference。
+
+
+
+其他情况也有，但由于不常见，这里不展开讨论。
+
+* 如果使用first class intdef-ctx展开时，引入的定义不出现在结果中，可以用internal-definition-context-track。
 * 类似于syntax-parse的`xx:id`的情况，这里由于没有一个用户提供的xx或id，会需要手动构造带有恰当的源码位置信息的identifier，并且添加original-for-check-syntax属性。
 
 ## Arrow Art
