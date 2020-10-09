@@ -2,7 +2,7 @@
 
 在DrRacket里，当光标移动到一个名字上时，会出现从其使用指向其定义的箭头。这个箭头可以辅助代码阅读，也预示了“变量重命名”功能的作用范围。
 
-由于宏的存在，一部分的_identifier_会在宏返回的syntax对象中丢失，因此需要在宏返回的syntax对象的_syntax property_里追加相应的信息。涉及的_syntax property_有：
+由于宏的存在，一部分的 _identifier_ 会在宏返回的syntax对象中丢失，因此需要在宏返回的syntax对象的 _syntax property_ 里追加相应的信息。涉及的 _syntax property_ 有：
 
 * `disappeared-use` 
 
@@ -11,13 +11,13 @@
 * `origin`
 * `original-for-check-syntax`
 
-对宏编写者而言，`disappeared-use`属性动得最频繁。所有不出现在宏返回的syntax对象中的_identifier_，都应该被记录_syntax property_的这一项里（除了宏自己的名字的_identifier_，那个是由expander记录到`origin`属性）。
+对宏编写者而言，`disappeared-use`属性动得最频繁。所有不出现在宏返回的syntax对象中的 _identifier_ ，都应该被记录 _syntax property_ 的这一项里（除了宏自己的名字的 _identifier_ ，那个是由expander记录到`origin`属性）。
 
 现在看一下几种常见的情况。
 
 ## 宏的Pattern 的 literal identifier
 
-`syntax-rules`、`syntax-case`等的pattern里面的_literal identifier_，是`disappeared-use`属性遗漏的重灾区（截至7.8，`case`宏仍不能给`else`的使用画上箭头）。
+`syntax-rules`、`syntax-case`等的pattern里面的 _literal identifier_ ，是`disappeared-use`属性遗漏的重灾区（截至7.8，`case`宏仍不能给`else`的使用画上箭头）。
 
 下面这个程序非常简单，但是`foo`的使用却画不出箭头：
 
@@ -33,7 +33,7 @@
 (bar foo 1)
 ```
 
-所以，`syntax-rules`是不能自动处理好这个问题的。当需要匹配syntax中的_literal identifier_时，不要用`syntax-rules`。
+所以，`syntax-rules`是不能自动处理好这个问题的。当需要匹配syntax中的 _literal identifier_ 时，不要用`syntax-rules`。
 
 `(syntax-rules () _ ...)`以外的用法都是不恰当的。
 
@@ -46,7 +46,7 @@
      #'x]))
 ```
 
-这里有一个麻烦的地方，`syntax-case`不会为pattern中的_literal identifier_引入_pattern variable_，不能直接用 `#'foo` 访问到用户输入的`foo`。因此要变通一下：
+这里有一个麻烦的地方，`syntax-case`不会为pattern中的 _literal identifier_ 引入 _pattern variable_ ，不能直接用 `#'foo` 访问到用户输入的`foo`。因此要变通一下：
 
 ```racket
 (define-syntax (bar stx)
@@ -56,7 +56,7 @@
      #'x]))
 ```
 
-这里选择用`syntax-case`的"fender-expr"来对_literal identifier_进行匹配，这样`#'foo-id`就是用户输入的`foo`了。
+这里选择用`syntax-case`的"fender-expr"来对 _literal identifier_ 进行匹配，这样`#'foo-id`就是用户输入的`foo`了。
 
 然后是添加`disappeared-use`：
 
@@ -70,7 +70,7 @@
                       (list (syntax-local-introduce #'foo-id)))]))
 ```
 
-这里的`syntax-local-introduce`是必要的，因为宏展开结束反转_scope_的时候不会深入到_syntax property_里面的_identifier_。为了让`foo`能被正确识别为原始输入的一部分，需要手动用`syntax-local-introduce`反转_scope_。
+这里的`syntax-local-introduce`是必要的，因为宏展开结束反转 _scope_ 的时候不会深入到_syntax property_里面的 _identifier_ 。为了让`foo`能被正确识别为原始输入的一部分，需要手动用`syntax-local-introduce`反转 _scope_ 。
 
 ### syntax-parse
 
@@ -199,7 +199,7 @@
    #'[x expr]])
 ```
 
-若是非`local-apply-transformer`的情况（例如`for`），`syntax-local-introduce`不适用，可以改为用宏延迟_syntax property_的添加：
+若是非`local-apply-transformer`的情况（例如`for`），`syntax-local-introduce`不适用，可以改为用宏延迟 _syntax property_ 的添加：
 
 ```racket
 (define-syntax-parser disappeared-use
@@ -217,7 +217,7 @@
 
 ## 其他情况
 
-* 如果要把`local-expand`的结果拆出一部分，原有的_syntax property_可能会遗失。
+* 如果要把`local-expand`的结果拆出一部分，原有的 _syntax property_ 可能会遗失。
 * 像`struct`那样引入名字由多个输入组合而成的定义的情况，需要添加`sub-range-binders`属性。
 
 参考[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)：
@@ -233,7 +233,7 @@
  ...
 ```
 
-这里使用了`syntax-track-origin`来复制原有的_syntax property_，而原来的`begin`则被添加到`origin`属性中了。如果要继续添加`disappeared-use`属性，需要与原来的属性组合，类似于：
+这里使用了`syntax-track-origin`来复制原有的 _syntax property_ ，而原来的`begin`则被添加到`origin`属性中了。如果要继续添加`disappeared-use`属性，需要与原来的属性组合，类似于：
 
 ```racket
 (syntax-property v
@@ -250,8 +250,8 @@
 
 其他情况也有，但由于不常见，这里不展开讨论。
 
-* 如果使用_first class internal definition context_展开时，引入的定义不出现在结果中，可以用`internal-definition-context-track`。
-* 类似于`syntax-parse`的`xx:id`的情况，这里由于没有一个用户提供的`xx`或`id`，会需要手动构造带有恰当的源码位置信息的_identifier_，并且添加`original-for-check-syntax`属性。
+* 如果使用 _first class internal definition context_ 展开时，引入的定义不出现在结果中，可以用`internal-definition-context-track`。
+* 类似于`syntax-parse`的`xx:id`的情况，这里由于没有一个用户提供的`xx`或`id`，会需要手动构造带有恰当的源码位置信息的 _identifier_ ，并且添加`original-for-check-syntax`属性。
 
 ## Arrow Art
 

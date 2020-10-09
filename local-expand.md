@@ -13,7 +13,7 @@
 
 ### 局部的完全展开与Expression Context
 
-当`stop-ids`参数选择`null` 时，`context-v`一般是`'expression`。也就是说，局部的完全展开需要_expression context_。而如果当前的`(syntax-local-context)`不是`'expression`时，则需要延迟到_expression context_。
+当`stop-ids`参数选择`null` 时，`context-v`一般是`'expression`。也就是说，局部的完全展开需要 _expression context_ 。而如果当前的`(syntax-local-context)`不是`'expression`时，则需要延迟到 _expression context_ 。
 
 ```rack
 #lang racket
@@ -31,9 +31,9 @@
 ;;; class: misuse of method (not in application) in: a
 ```
 
-这个例子中，`local`的展开是一个_internal definition context_，意味着环境还没有设置完毕，但却进行了完全展开，因此出现问题。
+这个例子中，`local`的展开是一个 _internal definition context_ ，意味着环境还没有设置完毕，但却进行了完全展开，因此出现问题。
 
-正确写法：用`#%expression`延迟到_expression context_再展开
+正确写法：用`#%expression`延迟到 _expression context_ 再展开
 
 ```rac
 #lang racket
@@ -60,13 +60,13 @@
 
   用`local-expand`。
 
-* 结果不变，但需要放进其他binding form里，导致引入新的local _scope_。例如`let`的`body`和`letrec`的`body`及`rhs`。
+* 结果不变，但需要放进其他binding form里，导致引入新的local _scope_ 。例如`let`的`body`和`letrec`的`body`及`rhs`。
 
   用`local-expand`。
 
   典型例子是`place/context`：其会用`local-expand`展开`body`，再计算出其中的自由变量。而展开的`body`放进一些let之类的东西里面，使得这些名字在结果里会重新绑定到place channel传进来的参数里，意义发生了变化。因此这种情况不适用`syntax-local-expand-expression`。
 
-* 结果不变，直接返回或在不引入新的local _scope_情况下返回。
+* 结果不变，直接返回或在不引入新的local _scope_ 情况下返回。
 
   用`syntax-local-expand-expression`。至于是不是`opaque-only?`，则看是否需要对结果进行其他操作。
 
@@ -78,7 +78,7 @@
 
 部分展开的情况就比较混乱了，没有固定的用法，这里只能简单总结一下。
 
-* 在_internal definition context_展开的情况，一般是配合_first class internal definition context_使用，`stop-ids`至少应包括`define-values`、`define-syntaxes`和`begin`。详细可见[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)。
+* 在 _internal definition context_ 展开的情况，一般是配合 _first class internal definition context_ 使用，`stop-ids`至少应包括`define-values`、`define-syntaxes`和`begin`。详细可见[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)。
 
 ## 什么时候要对local-expand的结果用syntax-disarm
 
@@ -94,8 +94,8 @@
 
 1. `x`有没有`set`!过，需要`body`完全展开之后才能得知，所以需要用`local-expand`进行完全展开
 
-2. 需要完全展开，所以延迟到_expression context_
-3. 要记录`set!`的情况，可以把x的名字绑定到一个_set!-transformer_，在里面通知`let-box`。这个过程可以用_3d syntax_简单地完成。
+2. 需要完全展开，所以延迟到 _expression context_ 
+3. 要记录`set!`的情况，可以把x的名字绑定到一个 _set!-transformer_ ，在里面通知`let-box`。这个过程可以用 _3d syntax_ 简单地完成。
 4. 因为没有被`set!`的情况下等于普通的`let`，可以利用`syntax-local-expand-expression`进行优化。
 5. 被`set!`过了的话，要对展开结果进行修改，因此需要`syntax-disarm`。
 
