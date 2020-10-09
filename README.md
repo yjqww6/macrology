@@ -8,7 +8,8 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 
 * [Racket Guide - Macros](https://docs.racket-lang.org/guide/macros.html)
 * [Fear of Macros](http://www.greghendershott.com/fear-of-macros/)
-
+* <https://docs.racket-lang.org/syntax/stxparse-intro.html>
+* [Binding as Sets of Scopes](https://www.cs.utah.edu/plt/scope-sets/)的1-3节
 
 
 ## 目录
