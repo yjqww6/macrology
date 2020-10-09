@@ -41,7 +41,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
   (foo x y z))
 ```
 
-也就是一次性从 definition context_ 中得到`struct`的字段和构造函数。
+也就是一次性从 _definition context_ 中得到`struct`的字段和构造函数。
 
 ### 实现
 
@@ -55,7 +55,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
    <...>])
 ```
 
-这里无疑要从利用 _first class internal definition context_ （以下简称_intdef-ctx_）对`body`进行操作了，但首先，参数的args的绑定还没有设置好。
+这里无疑要从利用 _first class internal definition context_ （以下简称 _intdef-ctx_ ）对`body`进行操作了，但首先，参数的args的绑定还没有设置好。
 
 因此，上述的第二个用途，设置环境：
 
@@ -138,7 +138,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
  #'(define-syntaxes (bd ...) rhs)]
 ```
 
-这里和上面不一样的是`expr`会被马上执行，而且要做完全展开。因为`body`自身不是完全展开，所以`define-record`的结果里仍可能会有对这些局部定义的宏的引用。为了避免`expr`被展开__两次__，这里先做完全展开。
+这里和上面不一样的是`expr`会被马上执行，而且要做完全展开。因为`body`自身不是完全展开，所以`define-record`的结果里仍可能会有对这些局部定义的宏的引用。为了避免`expr`被展开 __两次__ ，这里先做完全展开。
 
 * 其他情况直接返回：
 
