@@ -15,7 +15,7 @@
 
 当`stop-ids`参数选择`null` 时，`context-v`一般是`'expression`。也就是说，局部的完全展开需要 _expression context_ 。而如果当前的`(syntax-local-context)`不是`'expression`时，则需要延迟到 _expression context_ 。
 
-```rack
+```racket
 #lang racket
 
 (define-syntax (local stx)
@@ -35,7 +35,7 @@
 
 正确写法：用`#%expression`延迟到 _expression context_ 再展开
 
-```rac
+```racket
 #lang racket
 
 ;;;也可以直接用make-expression-transformer
