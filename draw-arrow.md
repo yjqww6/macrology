@@ -1,8 +1,8 @@
 # 如何让DrRacket正确地画出箭头
 
-在DrRacket里，当光标移动到一个名字上时，会出现从其使用指向其定义的箭头。这个箭头可以辅助代码阅读，也显示了变量重命名功能会涉及到的改动。
+在DrRacket里，当光标移动到一个名字上时，会出现从其使用指向其定义的箭头。这个箭头可以辅助代码阅读，也预示了“变量重命名”功能的作用范围。
 
-由于宏的存在，一部分的名字会在完全展开的程序中丢失，因此需要在宏展开过程中向Syntax Property追加相应的信息。涉及的Syntax Property有：
+由于宏的存在，一部分的_identifier_会在宏返回的syntax对象中丢失，因此需要在宏返回的syntax对象的_syntax property_里追加相应的信息。涉及的_syntax property_有：
 
 * `disappeared-use` 
 
@@ -11,15 +11,15 @@
 * `origin`
 * `original-for-check-syntax`
 
-对宏编写者而言，`disappeared-use`是最频繁用到的，所有不出现在结果中的identifier都应该记录到这个syntax property里（除了宏自己的名字，那个是由expander记录到origin里的）。
+对宏编写者而言，`disappeared-use`属性动得最频繁。所有不出现在宏返回的syntax对象中的_identifier_，都应该被记录_syntax property_的这一项里（除了宏自己的名字的_identifier_，那个是由expander记录到`origin`属性）。
 
 现在看一下几种常见的情况。
 
 ## 宏的Pattern 的 literal identifier
 
-syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappeared-use`遗漏的重灾区（截至7.8，case宏仍不能给else的使用画上箭头）。
+`syntax-rules`、`syntax-case`等的pattern里面的_literal identifier_，是`disappeared-use`属性遗漏的重灾区（截至7.8，`case`宏仍不能给`else`的使用画上箭头）。
 
-下面这个程序非常简单，但是foo的使用却画不出箭头：
+下面这个程序非常简单，但是`foo`的使用却画不出箭头：
 
 ```racket
 #lang racket
@@ -33,11 +33,11 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 (bar foo 1)
 ```
 
-所以，syntax-rules是不能自动处理好这个问题的。当需要匹配syntax中的literal identifier时，不要用syntax-rules。
+所以，`syntax-rules`是不能自动处理好这个问题的。当需要匹配syntax中的_literal identifier_时，不要用`syntax-rules`。
 
 `(syntax-rules () _ ...)`以外的用法都是不恰当的。
 
-先考虑换成syntax-case
+先考虑换成`syntax-case`：
 
 ```racket
 (define-syntax (bar stx)
@@ -46,7 +46,7 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
      #'x]))
 ```
 
-这里有一个麻烦的地方，syntax-case不会为literal引入pattern变量，不能直接用 `#'foo` 访问到用户输入的foo。因此要变通一下：
+这里有一个麻烦的地方，`syntax-case`不会为pattern中的_literal identifier_引入_pattern variable_，不能直接用 `#'foo` 访问到用户输入的`foo`。因此要变通一下：
 
 ```racket
 (define-syntax (bar stx)
@@ -56,9 +56,9 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
      #'x]))
 ```
 
-这里选择用syntax-case的fender-expr来对literal identifier进行匹配，这样`#'foo-id`就是用户输入的foo了。
+这里选择用`syntax-case`的"fender-expr"来对_literal identifier_进行匹配，这样`#'foo-id`就是用户输入的`foo`了。
 
-然后是添加disappeared-use：
+然后是添加`disappeared-use`：
 
 ```racket
 (define-syntax (bar stx)
@@ -70,18 +70,18 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
                       (list (syntax-local-introduce #'foo-id)))]))
 ```
 
-这里的syntax-local-introduce是必要的，因为宏展开结束反转scope的时候不会深入到syntax property里。为了让foo能被正确识别为原始输入的一部分，需要手动用syntax-local-introduce反转scope。
+这里的`syntax-local-introduce`是必要的，因为宏展开结束反转_scope_的时候不会深入到_syntax property_里面的_identifier_。为了让`foo`能被正确识别为原始输入的一部分，需要手动用`syntax-local-introduce`反转_scope_。
 
 ### syntax-parse
 
-另一方面，syntax-parse支持`#:track-literals`选项，这种情况的处理就非常简单了：
+另一方面，`syntax-parse`支持`#:track-literals`选项，这种情况的处理就非常简单了：
 
 ```racket
 (define-syntax-parser bar #:track-literals
   [(_ (~literal foo) x) #'x])
 ```
 
-可以看出syntax-parse的巨大优势。因此在编写宏时，能用syntax-parse的应该尽量用。
+可以看出`syntax-parse`的巨大优势。因此在编写宏时，能用`syntax-parse`的应该尽量用。
 
 ## "Pattern Expander"的Pattern中的literal identifier
 
@@ -112,9 +112,9 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 (use-expander expander1 foo)
 ```
 
-这里，expander1的结果没有放在表达式位置，即便添加了`#:track-literals`，也没有用。
+这里，`expander1`的结果没有放在表达式位置，即便添加了`#:track-literals`，也没有用。
 
-这种情况可以用with-disappeared-uses：
+这种情况可以用`with-disappeared-uses`：
 
 ```racket
 (define-syntax (use-expander stx)
@@ -131,11 +131,11 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
    #'[x 1]])
 ```
 
-这样，expander1和foo都画上了箭头。
+这样，`expander1`和`foo`都画上了箭头。
 
 ### 非local-apply-transformer
 
-把上面的apply-expander定义换成：
+把上面的`apply-expander`定义换成：
 
 ```racket
 (define (apply-expander proc stx)
@@ -144,9 +144,9 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
   (syntax-local-introduce (introducer (proc intro-stx))))
 ```
 
-这种旧式的展开方法因为record-disappeared-uses默认的syntax-local-introduce不是上面的introducer，所以画不出foo的箭头。
+这种旧式的展开方法因为`record-disappeared-uses`默认的`syntax-local-introduce`不是上面的`introducer`，所以画不出`foo`的箭头。
 
-需要提供正确的introducer，并让record-disappeared-uses不进行syntax-local-introduce：
+需要提供正确的`introducer`，并让`record-disappeared-uses`不进行`syntax-local-introduce`：
 
 ```racket
 #lang racket
@@ -187,7 +187,7 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 
 ### 别人写的宏
 
-如果上面的use-expander不能改，而expander1能改，那就要在expander1里寻找一个表达式位置了：
+如果上面的`use-expander`不能改，而`expander1`能改，那就要在`expander1`里寻找一个表达式位置了：
 
 ```racket
 (define-syntax-parser expander1
@@ -199,7 +199,7 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
    #'[x expr]])
 ```
 
-若是非local-apply-transformer的情况（例如for），syntax-local-introduce不适用，可以改为用宏延迟syntax property的添加：
+若是非`local-apply-transformer`的情况（例如`for`），`syntax-local-introduce`不适用，可以改为用宏延迟_syntax property_的添加：
 
 ```racket
 (define-syntax-parser disappeared-use
@@ -217,8 +217,8 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 
 ## 其他情况
 
-* 如果要把local-expand的结果拆出一部分，原有的syntax-property可能会遗失。
-* 像struct那样引入名字由多个输入组合而成的定义的情况，需要添加sub-range-binders属性
+* 如果要把`local-expand`的结果拆出一部分，原有的_syntax property_可能会遗失。
+* 像`struct`那样引入名字由多个输入组合而成的定义的情况，需要添加`sub-range-binders`属性。
 
 参考[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)：
 
@@ -233,7 +233,7 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
  ...
 ```
 
-这里使用了syntax-track-origin来复制原有的syntax property，而原来的begin则被添加到origin属性中了。如果要继续添加disappeared-use，需要与原来的信息组合，类似于：
+这里使用了`syntax-track-origin`来复制原有的_syntax property_，而原来的`begin`则被添加到`origin`属性中了。如果要继续添加`disappeared-use`属性，需要与原来的属性组合，类似于：
 
 ```racket
 (syntax-property v
@@ -244,14 +244,14 @@ syntax-rules、syntax-case等的pattern里面的literal identifier，是`disappe
 
 
 
-至于sub-range-binders属性的用法比较简单，可以直接看The Racket Reference。
+至于`sub-range-binders`属性的用法比较简单，可以直接看The Racket Reference。
 
 
 
 其他情况也有，但由于不常见，这里不展开讨论。
 
-* 如果使用first class intdef-ctx展开时，引入的定义不出现在结果中，可以用internal-definition-context-track。
-* 类似于syntax-parse的`xx:id`的情况，这里由于没有一个用户提供的xx或id，会需要手动构造带有恰当的源码位置信息的identifier，并且添加original-for-check-syntax属性。
+* 如果使用_first class internal definition context_展开时，引入的定义不出现在结果中，可以用`internal-definition-context-track`。
+* 类似于`syntax-parse`的`xx:id`的情况，这里由于没有一个用户提供的`xx`或`id`，会需要手动构造带有恰当的源码位置信息的_identifier_，并且添加`original-for-check-syntax`属性。
 
 ## Arrow Art
 

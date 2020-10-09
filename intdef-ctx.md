@@ -1,6 +1,6 @@
 # 如何使用First Class Internal Definition Context
 
-Racket的first class internal definition context是一个利器，主要用途有：
+Racket的_first class internal definition context_是一个利器，主要用途有：
 
 * 可以用来对定义进行变换：
 
@@ -19,7 +19,7 @@ Racket的first class internal definition context是一个利器，主要用途�
 (send (new a%) fact 5)
 ```
 
-在这个例子中，类a%定义了一个fact方法，用的是define/match，而不需要一个特别定制的define-method宏。从函数定义到类的方法需要经过复杂的变换过程，但是define/match自身是不知道自己会被用来定义方法的。First class internal definition context使其成为了可能。
+在这个例子中，类`a%`定义了一个`fact`方法，用的是`define/match`，而不需要一个特别定制的“define-method”宏。从函数定义到类的方法需要经过复杂的变换过程，但是`define/match`自身是不知道自己会被用来定义方法的。_First class internal definition context_使其成为了可能。
 
 * 可以立即为局部的展开设置所需环境，而不需要推迟到后续的宏展开
 
@@ -41,7 +41,7 @@ Racket的first class internal definition context是一个利器，主要用途�
   (foo x y z))
 ```
 
-也就是一次性从definition context中得到struct的字段和构造函数。
+也就是一次性从_definition context_中得到`struct`的字段和构造函数。
 
 ### 实现
 
@@ -55,7 +55,7 @@ Racket的first class internal definition context是一个利器，主要用途�
    <...>])
 ```
 
-这里无疑要从利用first class internal definition context（以下简称intdef-ctx）对body进行操作了，但首先，参数的args的绑定还没有设置好。
+这里无疑要从利用_first class internal definition context_（以下简称_intdef-ctx_）对`body`进行操作了，但首先，参数的args的绑定还没有设置好。
 
 因此，上述的第二个用途，设置环境：
 
@@ -64,21 +64,21 @@ Racket的first class internal definition context是一个利器，主要用途�
 (syntax-local-bind-syntaxes (syntax->list #'args.params) #f param-ctx)
 ```
 
-这里`parent-ctx`参数是`#f`，因为确实没有继承自其它的intdef-ctx；`add-scope?`参数也是`#f`，因为是设置环境，并不是真的引入了一个definition context，只是要防止后面的展开出现变量未定义的错误。
+这里`parent-ctx`参数是`#f`，因为确实没有继承自其它的_intdef-ctx_；`add-scope?`参数也是`#f`，因为是设置环境，并不是真的引入了一个_definition context_，只是要防止后面的展开出现变量未定义的错误。
 
 
 
-接下来定义body的intdef-ctx，这次就是常规状况了：
+接下来定义`body`的_intdef-ctx_，这次就是常规状况了：
 
 ```racket
 (define body-ctx (syntax-local-make-definition-context))
 ```
 
-因为确实是一个definition context，所以`add-scope?`是默认的`#t`。那么`parent-ctx`为什么仍是默认的`#f`，不是param-ctx呢？因为body-ctx的定义并不需要加入到param-ctx中。
+因为确实是一个_definition context_，所以`add-scope?`是默认的`#t`。那么`parent-ctx`为什么仍是默认的`#f`，不是`param-ctx`呢？因为`body-ctx`的定义并不需要加入到`param-ctx`中。
 
 
 
-接下来看看怎么对body进行展开，首先是local-expand的使用：
+接下来看看怎么对`body`进行展开，首先是`local-expand`的使用：
 
 ```racket
 (define ctx (list (gensym)))
@@ -89,11 +89,11 @@ Racket的first class internal definition context是一个利器，主要用途�
    (list body-ctx param-ctx)))
 ```
 
-因为body的定义不需对外可见，`context-v`使用`(list gensym)`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是intdef-ctx展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的ignore宏），才会添加别的。body-ctx和param-ctx两个环境都要访问，因此都要传进去。
+因为`body`的定义不需对外可见，`context-v`使用`(list gensym)`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是_intdef-ctx_展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的“ignore”宏），才会添加别的。`body-ctx`和`param-ctx`两个环境都要访问，因此都要传进去。
 
 #### 递归展开
 
-接下来要对body进行递归展开，先定义收集字段的变量：
+接下来要对`body`进行递归展开，先定义收集字段的变量：
 
 ```racket
 (define defined-ids '())
@@ -108,7 +108,7 @@ Racket的first class internal definition context是一个利器，主要用途�
   )) 
 ```
 
-* 遇到begin的情况，直接递归：
+* 遇到`begin`的情况，直接递归：
 
 ```racket
 [(begin form ...)
@@ -116,7 +116,7 @@ Racket的first class internal definition context是一个利器，主要用途�
  #'(begin expanded-form ...)]
 ```
 
-* 遇到define-values的情况：
+* 遇到`define-values`的情况：
 
 ```racket
 [(define-values (ids ...) expr)
@@ -126,9 +126,9 @@ Racket的first class internal definition context是一个利器，主要用途�
  #'(define-values (bd ...) expr)]
 ```
 
-这里就需要对body-ctx操作了。首先syntax-local-identifier-as-binding是去除ids的use-site scope，为什么需要这个步骤呢？因为每次local-expand可能引入不同的use-site scope，要使ids对其他定义可见，必须要去除use-site scope。然后，用syntax-local-bind-syntaxes将去除了use-site scope的名字添加到body-ctx中。
+这里就需要对`body-ctx`操作了。首先`syntax-local-identifier-as-binding`是去除`ids`的_use-site scope_，为什么需要这个步骤呢？因为每次`local-expand`可能引入不同的_use-site scope_，要使`ids`对其他定义可见，必须要去除_use-site scope_。然后，用`syntax-local-bind-syntaxes`将去除了_use-site scope_的名字添加到`body-ctx`中。
 
-* 遇到define-syntaxes的情况：
+* 遇到`define-syntaxes`的情况：
 
 ```racket
 [(define-syntaxes (ids ...) expr)
@@ -138,7 +138,7 @@ Racket的first class internal definition context是一个利器，主要用途�
  #'(define-syntaxes (bd ...) rhs)]
 ```
 
-这里和上面不一样的是expr会被马上执行，而且要做完全展开。因为body自身不是完全展开，所以define-record的结果里仍可能会有对这些局部定义的宏的引用。为了避免expr被展开两次，这里先做完全展开。
+这里和上面不一样的是`expr`会被马上执行，而且要做完全展开。因为`body`自身不是完全展开，所以`define-record`的结果里仍可能会有对这些局部定义的宏的引用。为了避免`expr`被展开__两次__，这里先做完全展开。
 
 * 其他情况直接返回：
 
@@ -148,7 +148,7 @@ Racket的first class internal definition context是一个利器，主要用途�
 
 #### 收尾
 
-按照要求的结构返回syntax
+按照要求的结构返回syntax对象
 
 ```racket
 #:with ctor-body <上面展开的结果>
@@ -217,7 +217,7 @@ Racket的first class internal definition context是一个利器，主要用途�
                     0 name-len 0.5 0.5))))])
 ```
 
-注意到这里还添加了syntax/track的定义以及sub-range-binders的属性，用来协助Check Syntax。相关会在“如何让DrRacket正确画出箭头”中介绍。
+注意到这里还添加了`syntax/track`的定义以及`sub-range-binders`属性，用来协助Check Syntax。相关会在[如何让DrRacket正确画出箭头](https://github.com/yjqww6/macrology/blob/master/draw-arrow.md)中介绍。
 
 使用示例：
 
@@ -237,9 +237,9 @@ Racket的first class internal definition context是一个利器，主要用途�
 
 ## 其他事项
 
-* 这里没有使用internal-definition-context-introduce，什么情况会用到？
+* 这里没有使用`internal-definition-context-introduce`，什么情况会用到？
 
   如果要让展开的结果和其他东西混在一起，并且想要能被访问，会需要用到。
 
-* 目前相关API中没有outside-edge scope的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>
+* 目前相关API中没有_outside-edge scope_的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>
 
