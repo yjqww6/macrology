@@ -70,7 +70,7 @@
                       (list (syntax-local-introduce #'foo-id)))]))
 ```
 
-这里的`syntax-local-introduce`是必要的，因为宏展开结束反转 _scope_ 的时候不会深入到_syntax property_里面的 _identifier_ 。为了让`foo`能被正确识别为原始输入的一部分，需要手动用`syntax-local-introduce`反转 _scope_ 。
+这里的`syntax-local-introduce`是必要的，因为宏展开结束反转 _scope_ 的时候不会深入到 _syntax property_ 里面的 _identifier_ 。为了让`foo`能被正确识别为原始输入的一部分，需要手动用`syntax-local-introduce`反转 _scope_ 。
 
 ### syntax-parse
 

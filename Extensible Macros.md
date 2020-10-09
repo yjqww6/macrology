@@ -111,7 +111,7 @@ Racket社区早期的解决方案是手动模拟宏展开过程中的 _macro-int
 4. `introducer`再次被应用，模拟`expander1`的展开结束，反转此次的 _macro-introduction scope_ 。
 5. `syntax-local-introduce`再次被应用，回到`use-expander`的展开过程中。
 
-这样，`use-expander1`的`x`被打上了唯一的 _macro-introduction scope_ ，`expander1`的`x`不可能具有该_scope_，不会意外的绑定。
+这样，`use-expander1`的`x`被打上了唯一的 _macro-introduction scope_ ，`expander1`的`x`不可能具有该 _scope_ ，不会意外的绑定。
 
 值得注意的是，这里`syntax-local-introduce`和`introducer`都是必要的：
 
