@@ -1,4 +1,4 @@
-# Phase Level 与 identifier的匹配
+# Phase 与 identifier的匹配
 
 在比较`a`的值是否和某个特定的 _identifier_ `#'b`相同时，一般会直接地（或通过`syntax-rules`等间接地）使用`(free-identifier=? a #'b)`。但也有一些情况不能如此处理。
 
@@ -227,7 +227,7 @@ _Fully Expanded Program_ （以下简称FPE）中的 _identifier_ 的 _phase lev
 * `module`的情况，取决于FPE的来源：
   * 如果是通过`expand`/`expand-syntax`展开得到的，那么`phase`的初值应当是`(namespace-base-phase)`；
   * 通过`local-expand`（`context-v`为`'top-level`）得到。虽然比较罕见，但也是有可能的。`phase`的初值应为`(syntax-local-phase-level)`。并且，非宏展开的情况用不了`local-expand`，`lit-phase`也不用考虑非宏展开的情况。
-* `#%plain-module-begin`肯定是`local-expand`得到的，所以是`(syntax-local-pahse-level)`。但由于module的body总是从 _phase level_ 0开始，所以也可以直接用`0`。
+* `#%plain-module-begin`肯定是`local-expand`得到的，所以是`(syntax-local-phase-level)`。但由于module的body总是从 _phase level_ 0开始，所以也可以直接用`0`。
 
 ### phase的变化
 
