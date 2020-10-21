@@ -27,6 +27,7 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 ### 疑难分析
 
 * [Phase 与 identifier的匹配](https://github.com/yjqww6/macrology/blob/master/phase-match.md)
+* [Scope和Binding](https://github.com/yjqww6/macrology/blob/master/scope.md)
 * [可扩展的宏](https://github.com/yjqww6/macrology/blob/master/Extensible%20Macros.md)
 
 
