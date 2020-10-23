@@ -153,7 +153,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 ```racket
 #:with ctor-body <上面展开的结果>
 #:with (field ...) defined-ids
-#:with ctor (format-id #'name "make-~a" #'name)
+#:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
 #'(begin (struct name (field ...))
          (define (ctor . args)
            ctor-body
@@ -203,21 +203,14 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
         (syntax/track (define-syntaxes (bd ...) rhs))]
        [form #'form]))
    #:with (field ...) defined-ids
-   #:with ctor (format-id #'name "make-~a" #'name)
-   (syntax-property
-    #'(begin (struct name (field ...))
-             (define (ctor . args)
-               ctor-body
-               (name field ...)))
-    'sub-range-binders
-    (let ([name-len (string-length (symbol->string (syntax-e #'name)))])
-      (list (vector (syntax-local-introduce #'ctor)
-                    5 name-len 0.5 0.5
-                    (syntax-local-introduce #'name)
-                    0 name-len 0.5 0.5))))])
+   #:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
+   #'(begin (struct name (field ...))
+            (define (ctor . args)
+              ctor-body
+              (name field ...)))])
 ```
 
-注意到这里还添加了`syntax/track`的定义以及`sub-range-binders`属性，用来协助Check Syntax。相关会在[如何让DrRacket正确画出箭头](https://github.com/yjqww6/macrology/blob/master/draw-arrow.md)中介绍。
+注意到这里还添加了`syntax/track`的定义，用来协助Check Syntax。相关会在[如何让DrRacket正确画出箭头](https://github.com/yjqww6/macrology/blob/master/draw-arrow.md)中介绍。
 
 使用示例：
 

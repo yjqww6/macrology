@@ -244,7 +244,7 @@
 
 
 
-至于`sub-range-binders`属性的用法比较简单，可以直接看The Racket Reference。
+至于`sub-range-binders`属性的用法比较简单，可以直接看The Racket Reference，一般用`format-id`的`#:subs?`特性即可。
 
 
 
