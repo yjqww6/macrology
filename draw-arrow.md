@@ -5,7 +5,6 @@
 由于宏的存在，一部分的 _identifier_ 会在宏返回的syntax对象中丢失，因此需要在宏返回的syntax对象的 _syntax property_ 里追加相应的信息。涉及的 _syntax property_ 有：
 
 * `disappeared-use` 
-
 * `disappeared-binding`
 * `sub-range-binders` 
 * `origin`

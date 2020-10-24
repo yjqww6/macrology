@@ -8,7 +8,7 @@
 
 一个例子：
 
-```Racket
+```racket
 #lang racket
 (define-match-expander succ
   (λ (stx)
