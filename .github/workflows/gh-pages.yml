@@ -27,7 +27,7 @@ jobs:
 
       - name: Build
         run: |
-          raco pkg install --auto markdown/
+          raco pkg install --auto --no-docs markdown/
           racket htmlize.rkt -q *.md && mv README.html index.html
           mkdir gh-pages && mv *.html gh-pages/
 
