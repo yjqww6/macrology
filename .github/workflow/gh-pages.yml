@@ -1,0 +1,37 @@
+name: github pages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Install Racket
+        uses: Bogdanp/setup-racket@v0.10
+        version: '7.8'
+        variant: 'CS'
+
+      - name: Install markdown parser
+        uses: actions/checkout@master
+        with:
+          repository: yjqww6/markdown
+          ref: nested-list
+          path: markdown
+
+      - name: Build
+        run: |
+          raco pkg install markdown/
+          racket htmlize.rkt -q *.md && mv README.html index.html
+          mkdir gh-pages && mv *.html gh-pages/
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
