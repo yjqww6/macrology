@@ -14,8 +14,9 @@ jobs:
 
       - name: Install Racket
         uses: Bogdanp/setup-racket@v0.10
-        version: '7.8'
-        variant: 'CS'
+        with:
+          version: '7.8'
+          variant: 'CS'
 
       - name: Install markdown parser
         uses: actions/checkout@master
