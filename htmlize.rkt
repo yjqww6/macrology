@@ -4,7 +4,7 @@
 
 (define style
   #<<style
-pre {
+pre:not(.racket) {
   word-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -116,7 +116,10 @@ style
 
 (define (htmlize str)
   `(html ()
-         (head () (meta ((charset "utf-8")))
+         (head ()
+               (meta ((charset "utf-8")))
+               (meta ((name "viewport")
+                      (content "width=device-width, initial-scale=1.0, user-scalable=yes")))
                (style () ,style))
          (body ()
                ,@((compose (pass replace-link)
