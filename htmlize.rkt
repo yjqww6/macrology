@@ -4,6 +4,10 @@
 
 (define style
   #<<style
+pre {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
 pre.racket {
   background: rgb(240,240,240);
 }
@@ -53,25 +57,38 @@ style
     (walk-xexpr xe f)))
 
 (define (indent xe recur ctx)
-  (define (indented-code? str)
-    (string-prefix? str "  "))
+  (define (remove-prefix-ws ls)
+    (define spaces
+      (for/fold ([mini #f])
+                ([str (in-list ls)])
+        (define cur
+          (for/sum ([c (in-string str)]
+                    #:break (not (char-whitespace? c)))
+            1))
+        (if mini (min mini cur) cur)))
+    (map (λ (s) (substring s spaces)) ls))
   (define (indented-str? str)
     (and (string? str) (string-prefix? str " ")))
   (match xe
     [`(p () " " (code () ,str))
      (match (string-split str "\n")
-       [(list "racket" (? indented-code? codes) ...)
+       [(list "racket" codes ...)
         `(pre ((class "brush: racket sub"))
               (code ()
                     ,(string-join
-                      (map (λ (s) (substring s 2))
-                           codes)
+                      (remove-prefix-ws codes)
+                      "\n")))]
+       [(list codes ...)
+        `(pre ((class "sub"))
+              (code ()
+                    ,(string-join
+                      (remove-prefix-ws codes)
                       "\n")))]
        [_ #f])]
-    [`(p () ,(? indented-str? str))
-     `(p ((class "sub")) ,(substring str 1))]
-    [`(p () " " . ,others)
-     `(p ((class "sub")) . ,others)]
+    [`(p () ,(? indented-str? str) . ,others)
+     `(p ((class "sub")) ,(substring str 1) . ,others)]
+    [`(p () (code () ,(? indented-str? str)))
+     `(p ((class "sub")) (code () ,(substring str 1)))]
     [_ #f]))
 
 (define (coloring-code xe recur ctx)
