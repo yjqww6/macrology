@@ -53,94 +53,6 @@ style
   (λ (xe)
     (walk-xexpr xe f)))
 
-(define (indent xe recur ctx)
-  (define (remove-prefix-ws ls)
-    (define spaces
-      (for/fold ([mini #f])
-                ([str (in-list ls)])
-        (define cur
-          (for/sum ([c (in-string str)]
-                    #:break (not (char-whitespace? c)))
-            1))
-        (if mini (min mini cur) cur)))
-    (map (λ (s) (substring s spaces)) ls))
-  (define (indented-str? str)
-    (and (string? str) (string-prefix? str " ")))
-  (match xe
-    [`(p () " " (code () ,str))
-     (match (string-split str "\n")
-       [(list "racket" codes ...)
-        `(pre ((class "brush: racket sub"))
-              (code ()
-                    ,(string-join
-                      (remove-prefix-ws codes)
-                      "\n")))]
-       [(list codes ...)
-        `(pre ((class "sub"))
-              (code ()
-                    ,(string-join
-                      (remove-prefix-ws codes)
-                      "\n")))]
-       [_ #f])]
-    [`(p () ,(? indented-str? str) . ,others)
-     `(p ((class "sub")) ,(substring str 1) . ,others)]
-    [`(p () (code () ,(? indented-str? str)))
-     `(p ((class "sub")) (code () ,(substring str 1)))]
-    [_ #f]))
-
-(define (group-sub xe)
-  (define (sub? elem)
-    (match elem
-      [(list (? symbol? elem) (list (list (? symbol? name) (? string? value)) ...)
-             child ...)
-       (for/or ([n (in-list name)]
-                [v (in-list value)]
-                #:when (eq? n 'class))
-         (for/or ([s (in-list (string-split v))])
-           (string=? s "sub")))]
-      [_ #f]))
-  (define ss (mutable-seteq))
-  (define grouped
-    (let loop ([child xe])
-      (match child
-        ['() '()]
-        [(cons (list (and elem (or 'ul 'ol)) attrs child ...
-                     (list elem- attr- child- ...))
-               rest)
-         (define-values (subs nsubs) (splitf-at rest sub?))
-         (define here
-           (list* elem attrs
-                  (append child 
-                          (list
-                           (list* elem- attr- (append child-
-                                                      subs))))))
-         (unless (null? subs)
-           (set-add! ss here))
-         (cons here (loop nsubs))]
-        [(cons head rest)
-         (cons head (loop rest))])))
-  (let loop ([child grouped])
-    (match child
-      ['() '()]
-      [(cons (list (and elem (or 'ul 'ol)) attrs child ...)
-             rest)
-       (define-values (subs nsubs)
-         (splitf-at rest (λ (s) (and (set-member? ss s)
-                                     (eq? (car s) elem)))))
-       (define unwraped
-         (append-map
-          (λ (sub)
-            (match sub
-              [(list (and elem (or 'ul 'ol)) attrs child ...)
-               child]))
-          subs))
-       (define here
-         (list* elem attrs
-                (append child unwraped)))
-       (cons here (loop nsubs))]
-      [(cons head rest)
-       (cons head (loop rest))])))
-
 (define (coloring-code xe recur ctx)
   (define (types in)
     (let loop ([mode #f] [s '()])
@@ -209,8 +121,6 @@ style
          (body ()
                ,@((compose (pass replace-link)
                            (pass coloring-code)
-                           group-sub
-                           (pass indent)
                            parse-markdown)
                   str))))
 
