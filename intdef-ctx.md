@@ -234,5 +234,6 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
   如果要让展开的结果和其他东西混在一起，并且想要能被访问，会需要用到。
 
-* 目前相关API中没有 _outside-edge scope_ 的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>
+* 目前相关API中没有 _outside-edge scope_ 的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>和[Scope和Binding](https://github.com/yjqww6/macrology/blob/master/scope.md)。
+
 
