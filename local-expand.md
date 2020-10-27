@@ -156,7 +156,6 @@
 应该怎么写呢？
 
 1. `x`有没有`set`!过，需要`body`完全展开之后才能得知，所以需要用`local-expand`进行完全展开
-
 2. 需要完全展开，所以延迟到 _expression context_ 
 3. 要记录`set!`的情况，可以把x的名字绑定到一个 _set!-transformer_ ，在里面通知`let-box`。这个过程可以用 _3d syntax_ 简单地完成。
 4. 因为没有被`set!`的情况下等于普通的`let`，可以利用`syntax-local-expand-expression`进行优化。

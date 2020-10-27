@@ -4,12 +4,37 @@
 
 (define style
   #<<style
-pre:not(.racket) {
+body {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  font-family: "Open Sans","Clear Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: rgb(51,51,51);
+}
+div#whole {
+  margin: 10px;
+}
+h1,h2 {
+  border-bottom: solid thin lightgray;
+}
+ol,ul {
+  margin: 0.8em 0;
+  padding-left: 30px;
+}
+div.outer {
+  border: solid 1px rgb(243,244,246);
+  border-radius: 3px;
+  margin: 10px 0 10px 0;
+}
+pre {
+  margin: 0;
   word-wrap: break-word;
   white-space: pre-wrap;
-}
-pre.racket {
-  background: rgb(240,240,240);
+  background: rgb(248,248,248);
+  border: solid 1px rgb(239,241,242);
+  border-radius: 3px;
+  line-height: 1.3;
 }
 code.racket {
   font-family: 'Fira-Mono', monospace;
@@ -94,7 +119,8 @@ style
     (member "racket" (string-split str)))
   (match xe
     [`(pre ((class ,(? racket? attr)) . ,other) (code ,_ ,str))
-     `(pre ((class ,attr) . ,other) ,@(colorme str))]
+     `(div ((class "outer"))
+           (pre ((class ,attr) . ,other) ,@(colorme str)))]
     [`(code () ,str)
      #:when (not (member 'pre ctx))
      `(span () ,@(colorme str))]
@@ -114,18 +140,32 @@ style
          . ,child)]
     [_ #f]))
 
+(define ((find-title box) xes)
+  (for ([xe (in-list xes)])
+    (match xe
+      [`(h1 ,_ ,str)
+       (set-box! box str)]
+      [_ (void)]))
+  xes)
+
 (define (htmlize str)
+  (define title (box ""))
+  (define transformed
+    ((compose (pass replace-link)
+              (pass coloring-code)
+              (find-title title)
+              parse-markdown)
+     str))
   `(html ()
          (head ()
+               (title () ,(unbox title))
                (meta ((charset "utf-8")))
                (meta ((name "viewport")
                       (content "width=device-width, initial-scale=1.0, user-scalable=yes")))
                (style () ,style))
          (body ()
-               ,@((compose (pass replace-link)
-                           (pass coloring-code)
-                           parse-markdown)
-                  str))))
+               (div ((id "whole"))
+                    ,@transformed))))
 
 (module+ main
   (require racket/cmdline racket/runtime-path net/sendurl)
