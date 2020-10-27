@@ -202,7 +202,7 @@ extends a global table that maps a ⟨symbol, scope set⟩ pair to a representat
 
 ---
 
-这些看起来暗示着这么一张全局的表的存在，但实际上Racket使用的是一个等效的结构：scope反过来索引了所有包含了该scope的binding。因此在分析问题时，可以简单地假定这张表存在。
+这些看起来暗示着这么一张全局的表的存在，但实际上Racket使用的是一个等效的结构：scope反过来索引了包含了该scope的binding。把一个 _identifier_ 添加为 _binding_ 的时候， _binding_ 的信息也被记录到其scope set的一个scope里，这个scope set的超集总是能访问到该 _binding_ 。因此在分析问题时，可以简单地假定这张表存在。
 
 ### binding的解析
 
