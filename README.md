@@ -37,5 +37,4 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 * [Keeping it Clean with Syntax Parameters](http://www.schemeworkshop.org/2011/papers/Barzilay2011.pdf)
 * [Debugging Hygienic Macros](https://www2.ccs.neu.edu/racket/pubs/cf-sp09.pdf)
 * [Fortifying macros](https://www2.ccs.neu.edu/racket/pubs/c-jfp12.pdf)
-
 * [Advanced Macrology and the Implementation of Typed Scheme](https://www2.ccs.neu.edu/racket/pubs/scheme2007-ctf.pdf)
