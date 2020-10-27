@@ -48,7 +48,7 @@ _phase_ 特定的scope有且仅有一种，是在展开module或top-level的时�
 
 * local
 
-  _Fully Expanded Program_ 的 _binding form_ （`let-values`、`#%plain-lambda`等）所引入的scope，用于区分local的 _binding_ 。
+  _Fully Expanded Program_ 的 _binding form_ （`let-values`、`#%plain-lambda`等）所引入的scope，用于区分local的 _binding_ 。另外，`quote-syntax`（不带`#:local`）完全展开时，会删去结果中的local scope。
 
 * macro
 

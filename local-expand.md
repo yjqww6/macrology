@@ -80,6 +80,69 @@
 
 * 在 _internal definition context_ 展开的情况，一般是配合 _first class internal definition context_ 使用，`stop-ids`至少应包括`define-values`、`define-syntaxes`和`begin`。详细可见[如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)。
 
+### 部分展开 vs 完全展开
+
+在 _definition context_ 做宏展开时，一般要经历两个pass：
+
+1. 对宏进行部分展开，这一步碰到`define-values`、`define-syntaxes`或者其他 _Fully Expanded Program_ 的form就会停下。这一步会建立环境，该 _definition context_ 下的 _binding_ 都是这一步引入的。
+2. 完全展开。
+
+如上面的例子所示的，在1做完全展开会因为环境缺失出现问题。同理，在2时试图修改环境也会出现问题，从一些设计中可以看出来：
+
+* `syntax-local-lift-module-end-declaration`如果不在步骤1中使用，会在 _expression context_ 展开其参数，无法引入 _binding_ 。
+
+  ```racket
+  #lang racket
+  (define-syntax (f stx)
+    (syntax-case stx ()
+      [(_ id)
+       (begin
+         (syntax-local-lift-module-end-declaration
+          #'(define id 1))
+         #'(λ () (+ id 1)))]))
+  (f x)
+  ```
+
+  这段代码可以正常展开，但如果把`f`的展开延迟到完全展开的时候：
+
+  ```racket
+  #lang racket
+  (require (for-syntax syntax/transformer))
+  (define-syntax f
+    (make-expression-transformer
+     (λ (stx)
+       (syntax-case stx ()
+         [(_ id)
+          (begin
+            (syntax-local-lift-module-end-declaration
+             #'(define id 1))
+            #'(λ () (+ id 1)))]))))
+  (f x)
+  ```
+
+  这时就会出现`x: unbound identifier`。因为这时要修改环境，添加 _binding_ 已经太迟了。即便不使用定义的`id`：
+
+  ```racket
+  #lang racket
+  (require (for-syntax syntax/transformer))
+  (define-syntax f
+    (make-expression-transformer
+     (λ (stx)
+       (syntax-case stx ()
+         [(_ id)
+          (begin
+            (syntax-local-lift-module-end-declaration
+             #'(define id 1))
+            #'(λ () 1))]))))
+  (f x)
+  ```
+
+  也会出现`define: not allowed in an expression context`。
+
+
+
+另一方面，部分展开会把 _Fully Expanded Program_ 的结构也加入`stop-ids`，这也导致只能展开最外层的syntax。
+
 ## 什么时候要对local-expand的结果用syntax-disarm
 
 在对结果进行操作时，如果只对最外层的名字进行检测不把拆开的结果返回，或者只拆开`begin` `begin-for-syntax` `#%plain-module-begin` `define-values` `define-syntaxes`，则不需要`syntax-disarm`。
