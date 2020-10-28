@@ -31,7 +31,7 @@ pre {
   margin: 0;
   word-wrap: break-word;
   white-space: pre-wrap;
-  background: rgb(248,248,248);
+  background: rgb(246,248,250);
   border: solid 1px rgb(239,241,242);
   border-radius: 3px;
   line-height: 1.3;
