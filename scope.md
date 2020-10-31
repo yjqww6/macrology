@@ -245,6 +245,8 @@ Sets of Scopes下的binding解析就是寻找scope set的greatest子集而已，
 
 输出`'(ns-0.1)`和`'(ns-1.1)`。这就是“multi scope”添加顺序对binding解析的影响。
 
+`syntax-debug-info`结果的`fallbacks`项也是由此而来。
+
 这个设计是为了方便syntax对象在多个命名空间里使用。
 
 ## 实例：仿local-expand/capture-lifts
