@@ -87,9 +87,9 @@
 1. 对宏进行部分展开，这一步碰到`define-values`、`define-syntaxes`或者其他 _Fully Expanded Program_ 的form就会停下。这一步会建立环境，该 _definition context_ 下的 _binding_ 都是这一步引入的。
 2. 完全展开。
 
-如上面的例子所示的，在1做完全展开会因为环境缺失出现问题。同理，在2时试图修改环境也会出现问题，从一些设计中可以看出来：
+如上面的例子所示的，在1做完全展开会因为环境缺失出现问题。同理，在1时使用`identifier-binding`也可能得不到准确的结果。在2时试图修改环境也会出现问题，从一些设计中可以看出来：
 
-* `syntax-local-lift-module-end-declaration`如果不在步骤1中使用，会在 _expression context_ 展开其参数，无法引入 _binding_ 。
+* `syntax-local-lift-module-end-declaration`如果不在步骤1中使用，会在 _expression context_ 展开其参数，导致无法引入 _binding_ 。
 
   ```racket
   #lang racket
@@ -138,6 +138,7 @@
   ```
 
   也会出现`define: not allowed in an expression context`。
+* 其他能在2改变环境的手段，如`syntax-local-lift-expression`、`syntax-local-lift-require`都会引入新的scope来确保只有新展开的代码能看到引入的 _binding_ 。
 
 
 

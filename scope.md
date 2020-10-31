@@ -66,6 +66,10 @@ _phase_ 特定的scope有且仅有一种，是在展开module或top-level的时�
 
   展开 _internal definition context_ 时引入的scope。
 
+* lifted-require
+
+  顾名思义，`syntax-local-lift-require`的产物。
+
 * letrec-body 
 
   `letrec-values`/`letrec-syntaxes+values`添加到其“body”（“rhs”没有）的scope。虽然Binding as Sets of Scopes提到“body-scope”机制在Racket中没有采用，但事实上还是用到了：
