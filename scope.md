@@ -10,7 +10,7 @@ Racket的 _identifier_ 在不同的 _phase_ 可以拥有不同的scope，解析�
 
 ### Phase特定的Scope
 
-_phase_ 特定的scope有且仅有一种，是在展开module或top-level的时候引入的。这种scope在expander里被称为"multi scope"，`syntax-shift-phase-level`仅对这部分scope起作用。严格来说，“multi scope”并不是通常意义上的scope，它是一种lazy的结构，在各个 _phase_ 体现为不同的“representation scope”——这个“representation scope”更接近于通常意义上的scope。
+_phase_ 特定的scope有两种，一是在展开module或top-level的时候引入的，另一种是`syntax-binding-set`系列api引入的。这两种scope在expander里被称为"multi scope"，`syntax-shift-phase-level`仅对这部分scope起作用。严格来说，“multi scope”并不是通常意义上的scope，它是一种lazy的结构，在各个 _phase_ 体现为不同的“representation scope”——这个“representation scope”更接近于通常意义上的scope。
 
 运行以下程序
 
