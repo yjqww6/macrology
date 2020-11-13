@@ -276,6 +276,7 @@ Racket的`local-expand/capture-lifts`可以用来分隔不同的语言，但若�
 ```
 
 `current-lift-context`的类型是
+
 ```racket
 (Parameter (Pairof Internal-Definition-Context 
                    (Boxof (Listof (Pairof Identifier Syntax))))

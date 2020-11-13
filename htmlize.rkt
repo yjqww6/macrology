@@ -79,7 +79,7 @@ style
     (walk-xexpr xe f)))
 
 (define (coloring-code xe recur ctx)
-  (define (types in)
+  (define (types in bstr)
     (let loop ([mode #f] [s '()])
       (define-values (str type _1 start end _4 new-mode)
         (module-lexer in 0 mode))
@@ -88,13 +88,15 @@ style
         [(memq type
                '(comment sexp-comment constant
                          string parenthesis hash-colon-keyword symbol))
-         (loop new-mode (cons (vector (sub1 start) (sub1 end) type str) s))]
+         (loop new-mode (cons (vector (sub1 start) (sub1 end) type
+                                      (bytes->string/utf-8 (subbytes bstr (sub1 start) (sub1 end))))
+                              s))]
         [else (loop new-mode s)])))
 
   (define (colorme str)
     (define bstr (string->bytes/utf-8 str))
     (define colored
-      (types (open-input-bytes bstr)))
+      (types (open-input-bytes bstr) bstr))
 
     (let loop ([pos 0] [colored colored])
       (match colored
