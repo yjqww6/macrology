@@ -20,6 +20,7 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 * TODO Syntax Property有什么应用
 * TODO Interposition Points的应用
 * [local-expand该怎么用](https://github.com/yjqww6/macrology/blob/master/local-expand.md)
+* [如何设置编译期信息](https://github.com/yjqww6/macrology/blob/master/compenv.md)
 * [如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)
 * TODO The Racket Reference中Syntax Transformers一节提到的特性都有什么用
 
