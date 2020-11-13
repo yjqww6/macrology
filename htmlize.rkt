@@ -1,6 +1,6 @@
 #lang racket
 
-(require markdown syntax-color/module-lexer)
+(require markdown syntax-color/module-lexer net/url)
 
 (define style
   #<<style
@@ -132,12 +132,13 @@ style
 (define (replace-link xe recur ctx)
   (match xe
     [`(a ((href ,addr)) . ,child)
-     #:when (string-prefix? addr (self-prefix))
-     `(a ((href 
-           ,(path->string
-             (path-replace-extension (substring addr (string-length (self-prefix)))
-                                     ".html"))))
-         . ,child)]
+     #:when (and (string-prefix? addr (self-prefix))
+                 (string-contains? addr ".md"))
+     (define rel
+       (substring addr (string-length (self-prefix))))
+     (define replaced
+       (string-replace rel ".md" ".html" #:all? #f))
+     `(a ((href ,replaced)) . ,child)]
     [_ #f]))
 
 (define ((find-title box) xes)
