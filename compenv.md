@@ -3,7 +3,6 @@
 在Racket中，设置编译期信息，并可以被宏利用的手段，主要分为几类：
 
 * 编译期的副作用
-
 * Transformer Binding
 * Syntax Property
 
