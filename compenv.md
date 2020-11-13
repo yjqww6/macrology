@@ -250,7 +250,7 @@ _3D Syntax_ 有其用途，例如如果要编写一个调试器，就可以直�
 
   注意到上述代码中，`let`里面的`a`没有被计入`(report-a)`计入，这跟Definition Context的两轮展开有关系，可见[部分展开 vs 完全展开](https://github.com/yjqww6/macrology/blob/master/local-expand.md#%E9%83%A8%E5%88%86%E5%B1%95%E5%BC%80-vs-%E5%AE%8C%E5%85%A8%E5%B1%95%E5%BC%80)。
 
-  一种变通手法是将`(report-a)`改为`(#%expression (report-a))`，将展开延迟到第二轮。这也并非万全之策，应副作用的顺序影响结果。
+  一种变通手法是将`(report-a)`改为`(#%expression (report-a))`，将展开延迟到第二轮。这也并非万全之策，应避免副作用的顺序影响结果。
 
 * 表达式上下文
 
