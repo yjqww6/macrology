@@ -20,7 +20,7 @@
   [(succ (succ N)) N])
 ```
 
-这里用户定义了`succ`（为什么会用 `define-match-expander` 而不是 `define-synax` 后面会说），对应的过程被`match`调用，最后匹配模式变成了 `(app sub1 (app sub1 N))` 。最终输出`3`。
+这里用户定义了`succ`（为什么会用 `define-match-expander` 而不是 `define-syntax` 后面会说），对应的过程被`match`调用，最后匹配模式变成了 `(app sub1 (app sub1 N))` 。最终输出`3`。
 
 
 
