@@ -55,26 +55,26 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
    <...>])
 ```
 
-这里无疑要从利用 _first class internal definition context_ （以下简称 _intdef-ctx_ ）对`body`进行操作了，但首先，参数的args的绑定还没有设置好。
+这里无疑要从利用 _first class internal definition context_ （以下简称 _intdef-ctx_ ）对`body`进行操作了，但首先，参数的args的 _binding_ 还没有设置好。
 
 因此，上述的第二个用途，设置环境：
 
 ```racket
-(define param-ctx (syntax-local-make-definition-context #f #f))
+(define param-ctx (syntax-local-make-definition-context))
 (syntax-local-bind-syntaxes (syntax->list #'args.params) #f param-ctx)
 ```
 
-这里`parent-ctx`参数是`#f`，因为确实没有继承自其它的 _intdef-ctx_ ；`add-scope?`参数也是`#f`，因为是设置环境，并不是真的引入了一个 _definition context_ ，只是要防止后面的展开出现变量未定义的错误。
+这里`param-ctx`提供一个包含了args的 _binding_ 的环境，防止出现变量未定义或是访问到外层定义的同名 _binding_ 。
 
 
 
-接下来定义`body`的 _intdef-ctx_ ，这次就是常规状况了：
+接下来定义`body`的 _intdef-ctx_ ：
 
 ```racket
 (define body-ctx (syntax-local-make-definition-context))
 ```
 
-因为确实是一个 _definition context_ ，所以`add-scope?`是默认的`#t`。那么`parent-ctx`为什么仍是默认的`#f`，不是`param-ctx`呢？因为`body-ctx`的定义并不需要加入到`param-ctx`中。
+因为确实是一个 _definition context_ 。那么`parent-ctx`为什么是默认的`#f`，不是`param-ctx`呢？因为`body-ctx`的定义并不需要加入到`param-ctx`中。
 
 
 
@@ -148,14 +148,23 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 #### 收尾
 
-按照要求的结构返回syntax对象
+按照要求的结构返回syntax对象。
+
+注意这里的`args-scoped`，需要使用`internal-definition-context-introduce`让`args`带上`param-ctx`的scope，然后body的名字才能解析到新的定义。
+
+这是因为`args`是从宏的参数提供的，原本不含有`param-ctx`的scope。而`syntax-local-bind-syntaxes`会把自己的scope添加到创建的 _binding_ 中。
+
+因此，如果直接将`args`放入结果中，最终的scope set不是`param-ctx`对应的 _binding_ 的scope set的超集，将导致“ambigious binding”。
+
+相对地，后面`syntax-local-bind-syntaxes`所用的 _identifier_ 是从展开结果中获取的，需要`syntax-local-identifier-as-binding`。
 
 ```racket
 #:with ctor-body <上面展开的结果>
 #:with (field ...) defined-ids
 #:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
+#:with args-scoped (internal-definition-context-introduce param-ctx #'args)
 #'(begin (struct name (field ...))
-         (define (ctor . args)
+         (define (ctor . args-scoped)
            ctor-body
            (name field ...)))
 ```
@@ -170,7 +179,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 (define-syntax-parser define-record
   [(_ (name:id . args:formals) body:expr ...+)
    #:do
-   [(define param-ctx (syntax-local-make-definition-context #f #f))
+   [(define param-ctx (syntax-local-make-definition-context))
     (define body-ctx (syntax-local-make-definition-context))
     (syntax-local-bind-syntaxes (syntax->list #'args.params) #f param-ctx)
     (define ctx (list (gensym)))
@@ -204,8 +213,9 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
        [form #'form]))
    #:with (field ...) defined-ids
    #:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
+   #:with args-scoped (internal-definition-context-introduce param-ctx #'args)
    #'(begin (struct name (field ...))
-            (define (ctor . args)
+            (define (ctor . args-scoped)
               ctor-body
               (name field ...)))])
 ```
@@ -229,10 +239,6 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 
 ## 其他事项
-
-* 这里没有使用`internal-definition-context-introduce`，什么情况会用到？
-
-  如果要让展开的结果和其他东西混在一起，并且想要能被访问，会需要用到。
 
 * 目前相关API中没有 _outside-edge scope_ 的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>和[Scope和Binding](https://github.com/yjqww6/macrology/blob/master/scope.md)。
 
