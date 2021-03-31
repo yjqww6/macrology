@@ -89,7 +89,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
    (list body-ctx param-ctx)))
 ```
 
-因为`body`的定义不需对外可见，`context-v`使用`(list gensym)`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是 _intdef-ctx_ 展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的“ignore”宏），才会添加别的。`body-ctx`和`param-ctx`两个环境都要访问，因此都要传进去。
+因为`body`的定义不需对外可见，`context-v`使用`(list (gensym))`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是 _intdef-ctx_ 展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的“ignore”宏），才会添加别的。`body-ctx`和`param-ctx`两个环境都要访问，因此都要传进去。
 
 #### 递归展开
 
