@@ -1,0 +1,406 @@
+
+<html>
+ <head>
+  <title>Scope和Binding</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <style>body {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  font-family: "Open Sans","Clear Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: rgb(51,51,51);
+}
+div#whole {
+  margin: 10px;
+}
+h1,h2 {
+  border-bottom: solid thin lightgray;
+}
+ol,ul {
+  margin: 0.8em 0;
+  padding-left: 30px;
+}
+div.outer {
+  border: solid 1px rgb(243,244,246);
+  border-radius: 3px;
+  margin: 10px 0 10px 0;
+}
+pre {
+  margin: 0;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  background: rgb(246,248,250);
+  border: solid 1px rgb(239,241,242);
+  border-radius: 3px;
+  line-height: 1.3;
+}
+code.racket {
+  font-family: 'Fira-Mono', monospace;
+}
+code.parenthesis {
+  color: rgb(132,60,36);
+}
+code.symbol {
+  color: rgb(38, 38, 128);
+}
+code.hash-colon-keyword {
+  color: rgb(132, 60, 36);
+}
+code.string,code.constant {
+  color: rgb(41, 128, 38);
+}
+code.comment,code.sexp-comment {
+  color: rgb(192, 116, 31);
+}</style></head>
+ <body>
+  <div id="whole">
+   <h1 id="scope和binding">Scope和Binding</h1>
+   <p>Racket的宏系统是基于Binding as Sets of Scopes算法的，在实现一些复杂的宏时，往往会需要对宏进行手动操纵。本文将对Racket中的各种scope进行分析，以期建立一个清晰的心理模型，能快速理解Macro Stepper的输出，对宏的各种scope的问题进行调试并修复。</p>
+   <p>（注：阅读本文前，应了解<a href="https://www.cs.utah.edu/plt/scope-sets/">Binding as Sets of Scopes</a>的1&ndash;3节内容）</p>
+   <h2 id="scope盘点">Scope盘点</h2>
+   <p>Racket的 <em>identifier</em> 在不同的 <em>phase</em> 可以拥有不同的scope，解析到不同的 <em>binding</em> ，而<span><code class="racket symbol">syntax-shift-phase-level</code></span>可以偏移各 <em>phase</em> 的scope。但实际上，大部分的scope都是作用于所有 <em>phase</em> 的，也就是说，“shift”对其不起作用。</p>
+   <h3 id="phase特定的scope">Phase特定的Scope</h3>
+   <p><em>phase</em> 特定的scope有两种，一是在展开module或top-level的时候引入的，另一种是<span><code class="racket symbol">syntax-binding-set</code></span>系列api引入的。这两种scope在expander里被称为"multi scope"，<span><code class="racket symbol">syntax-shift-phase-level</code></span>仅对这部分scope起作用。严格来说，“multi scope”并不是通常意义上的scope，它是一种lazy的结构，在各个 <em>phase</em> 体现为不同的“representation scope”——这个“representation scope”更接近于通常意义上的scope。</p>
+   <p>运行以下程序</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket">#lang racket
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-base-namespace</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">hash-ref</code><code class="racket">
+ </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-debug-info</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">namespace-syntax-introduce</code><code class="racket">
+   </code><code class="racket parenthesis">(</code><code class="racket symbol">datum-&gt;syntax</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+ </code><code class="racket constant">'</code><code class="racket symbol">context</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">hash-ref</code><code class="racket">
+ </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-debug-info</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-shift-phase-level</code><code class="racket">
+   </code><code class="racket parenthesis">(</code><code class="racket symbol">namespace-syntax-introduce</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">datum-&gt;syntax</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket">
+   </code><code class="racket constant">-1</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+ </code><code class="racket constant">'</code><code class="racket symbol">context</code><code class="racket parenthesis">)</code></pre></div>
+   <p>可以看到类似</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">#(</code><code class="racket constant">0</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">86798</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">top-level</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">#(</code><code class="racket constant">0</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">86799</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">top-level</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+   <p>的字样。这里的<span><code class="racket parenthesis">#(</code><code class="racket constant">86798</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">top-level</code><code class="racket parenthesis">)</code></span>和<span><code class="racket parenthesis">#(</code><code class="racket constant">86799</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">top-level</code><code class="racket parenthesis">)</code></span>就是a命名空间里，top-level的“multi scope”，所对应的 <em>phase level</em> 0和1的“representation scope”了。</p>
+   <h3 id="phase无关的scope">Phase无关的Scope</h3>
+   <p>对于 <em>phase</em> 无关的各种scope，其自身属性并无区别，主要是按用途来归类。（实际上，也存在interned和uninterned的区别，但由于 <em>interned scope</em> 极少会被用到，这里按下不表）</p>
+   <p>按<span><code class="racket symbol">syntax-debug-info</code></span>显示的名字来分，有以下几种scope：</p>
+   <ul>
+    <li>
+     <p>local</p>
+     <p><em>Fully Expanded Program</em> 的 <em>binding form</em> （<span><code class="racket symbol">let-values</code></span>、<span><code class="racket symbol">#%plain-lambda</code></span>等）所引入的scope，用于区分local的 <em>binding</em> 。另外，<span><code class="racket symbol">quote-syntax</code></span>（不带<span><code class="racket hash-colon-keyword">#:local</code></span>）完全展开时，会删去结果中的local scope。</p></li>
+    <li>
+     <p>macro</p>
+     <p>宏展开引入的scope，通过宏展开前后的两次反转，所有展开过程中新引入的syntax对象都会添加上该scope。</p></li>
+    <li>
+     <p>use-site</p>
+     <p>当一个宏的定义和使用在同一个 <em>definition context</em> 时，宏的参数会带上该scope。</p></li>
+    <li>
+     <p>module</p>
+     <p>展开module时引入的scope。</p></li>
+    <li>
+     <p>intdef</p>
+     <p>展开 <em>internal definition context</em> 时引入的scope。</p></li>
+    <li>
+     <p>lifted-require</p>
+     <p>顾名思义，<span><code class="racket symbol">syntax-local-lift-require</code></span>的产物。</p></li>
+    <li>
+     <p>letrec-body</p>
+     <p><span><code class="racket symbol">letrec-values</code></span>/<span><code class="racket symbol">letrec-syntaxes+values</code></span>添加到其“body”（“rhs”没有）的scope。虽然Binding as Sets of Scopes提到“body-scope”机制在Racket中没有采用，但事实上还是用到了：</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">#lang racket
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">f</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-case</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">_</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">displayln</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">hash-ref</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-debug-info</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">context</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">void</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">letrec-values</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">f</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket parenthesis">(</code><code class="racket parenthesis">#(</code><code class="racket constant">43768</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43775</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">anonymous-module</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43836</code><code class="racket"> </code><code class="racket symbol">local</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43837</code><code class="racket"> </code><code class="racket symbol">intdef</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43838</code><code class="racket"> </code><code class="racket symbol">local</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43839</code><code class="racket"> </code><code class="racket symbol">letrec-body</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43840</code><code class="racket"> </code><code class="racket symbol">intdef</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">#(</code><code class="racket constant">43841</code><code class="racket"> </code><code class="racket symbol">macro</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+     <p>可以看到这里的<span><code class="racket parenthesis">#(</code><code class="racket constant">43839</code><code class="racket"> </code><code class="racket symbol">letrec-body</code><code class="racket parenthesis">)</code></span>。</p></li></ul>
+   <h3 id="inside-edge-scope和outside-edge-scope">inside-edge scope和outside-edge scope</h3>
+   <p>在 <em>definition context</em> 展开的时候，输入的syntax对象会带上 <em>outside-edge scope</em> 和 <em>inside-edge scope</em> ；并且，展开的结果也会带上 <em>inside-edge scope</em> 。</p>
+   <p><em>outside-edge scope</em> 区分宏引入的 <em>identifier</em> ， <em>inside-edge scope</em> 区分不同的 <em>definition context</em> 。</p>
+   <p>这两种scope并不是新种类的scope，而是从另一个维度对上述的各种scope进行分类。</p>
+   <p>对于各种 <em>definition context</em> ：</p>
+   <ul>
+    <li>
+     <p>top-level的情况：充当 <em>outside-edge scope</em> 的是一个所有top-level共享的scope，即上文出现的<span><code class="racket parenthesis">#(</code><code class="racket constant">0</code><code class="racket"> </code><code class="racket symbol">module</code><code class="racket parenthesis">)</code></span>；充当 <em>inside-edge scope</em> 的是一个特定的“multi scope”。<span><code class="racket symbol">namespace-syntax-introduce</code></span>就是添加这对scope。</p></li>
+    <li>
+     <p>module的情况：充当 <em>outside-edge scope</em> 的是特定的module scope；充当 <em>inside-edge scope</em> 的是一个特定的“multi scope”。</p></li>
+    <li>
+     <p><em>internal definition context</em> 的情况：充当 <em>inside-edge scope</em> 的是特定的intdef scope；充当 <em>outside-edge scope</em> 的是外面的 <em>binding form</em> 特定的local scope，以及letrec-body scope（如果存在）。</p></li>
+    <li>
+     <p><em>first class internal definition context</em> 的情况和上面类似——除了没有 <em>outside-edge scope</em> ，这也导致了一些卫生问题。</p>
+     <p>一个来自于<a href="https://github.com/racket/racket/issues/3198">https://github.com/racket/racket/issues/3198</a>的例子：</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">#lang racket
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">good</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax-rule</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">m</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">displayln</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">c%</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">class</code><code class="racket"> </code><code class="racket symbol">object%</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">super-new</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">bad2</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">m</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">new</code><code class="racket"> </code><code class="racket symbol">c%</code><code class="racket parenthesis">)</code></pre></div>
+     <p>在Racket 7.8中，输出<span><code class="racket symbol">bad2</code></span>。因为<span><code class="racket symbol">bad2</code></span>和<span><code class="racket symbol">m</code></span>中的<span><code class="racket symbol">x</code></span>展开后都被打上了作为 <em>inside-edge scope</em> 的intdef scope，但由于没有 <em>outside-edge scope</em> ，情况变成了：</p>
+     <ol>
+      <li>good x common scopes</li>
+      <li>bad2 x：common scopes + intdef scope</li>
+      <li>m x：common scopes + intdef scope + macro scope</li></ol>
+     <p>workaround是给它凑上一个 <em>outside-edge scope</em> ，例如使用一个local scope：</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">c%</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">class</code><code class="racket"> </code><code class="racket symbol">object%</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">super-new</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">bad2</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">m</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+     <p>这样bad2 x多了个scope，不会绑定m x。</p>
+     <p>实际上从这个问题中可以看到 <em>outside-edge scope</em> 和 <em>use-site scope</em> 的相似性。</p></li></ul>
+   <p>另一个需要注意的是，由于“multi scope”也被用作 <em>inside-edge scope</em> ，如果进行了shift，被移走的当前 <em>phase</em> 的“representation scope”在后面又会加回来——最终该 <em>identifier</em> 仍能触及当前 <em>phase</em> 的 <em>binding</em> ，并且在当前的 <em>phase</em> 带有两种“representation scope”。因此下面这个程序不会出现“unbound identifier”错误。</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket">#lang racket
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket constant">1</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">m</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-case</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">_</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-shift-phase-level</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket constant">-1</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">m</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket parenthesis">)</code></pre></div>
+   <hr />
+   <p>盘点完scope后，再来看看scope和binding的关系。</p>
+   <h2 id="scope和binding">Scope和Binding</h2>
+   <p>Binding as Sets of Scopes中提到</p>
+   <pre><code>extends a global table that maps a ⟨symbol, scope set⟩ pair to a representation of a binding.</code></pre>
+   <p>那么Racket中存在这么一张全局的表吗？按照常识，正经的实现里肯定不会出现一个这么容易内存泄漏的结构。这里就可能导致一些误区：</p>
+   <ul>
+    <li>
+     <p>认为 <em>identifier</em> 捕获了自身所在的局部环境——实际上 <em>identifier</em> 仍然只是 symbol + scope set。</p></li>
+    <li>
+     <p>认为解析一个 <em>identifier</em> 的 <em>binding</em> 依赖当前环境——实际上<span><code class="racket symbol">identifier-binding</code></span>这个函数并不需要一个namespace参数。</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">#lang racket
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">datum-&gt;syntax</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">x</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">ns</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-base-namespace</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">add-scope</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-syntax-delta-introducer</code><code class="racket">
+                   </code><code class="racket parenthesis">(</code><code class="racket symbol">namespace-syntax-introduce</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket symbol">ns</code><code class="racket parenthesis">)</code><code class="racket">
+                   </code><code class="racket symbol">x</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">eval-syntax</code><code class="racket"> </code><code class="racket constant">#`</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> #,</code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket constant">1</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">ns</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">identifier-binding</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">add-scope</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">0</code><code class="racket"> </code><code class="racket constant">#t</code><code class="racket parenthesis">)</code></pre></div>
+     <p>这里<span><code class="racket symbol">identifier-binding</code></span>看起来不可能知道ns的存在，但仍然能解析到ns中的binding，得到<span><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket symbol">x.1</code><code class="racket parenthesis">)</code></span>。</p></li></ul>
+   <hr />
+   <p>这些看起来暗示着这么一张全局的表的存在，但实际上Racket使用的是一个等效的结构：scope反过来索引了包含了该scope的binding。把一个 <em>identifier</em> 添加为 <em>binding</em> 的时候， <em>binding</em> 的信息也被记录到其scope set的一个scope里，这个scope set的超集总是能访问到该 <em>binding</em> 。因此在分析问题时，可以简单地假定这张表存在。</p>
+   <h3 id="binding的解析">binding的解析</h3>
+   <p>Sets of Scopes下的binding解析就是寻找scope set的greatest子集而已，找不到任何子集就“unbound identifier”，找到多个maximal子集就“identifier&rsquo;s binding is ambiguous”。</p>
+   <p>但是，“multi scope”的的处理就比较特殊——如果解析失败，它会把最近加入的“multi scope”去掉再尝试，直到没有“multi scope”为止。</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket">#lang racket
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">a-ns</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-base-namespace</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">b-ns</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-base-namespace</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">datum-&gt;syntax</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">x</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">for</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">ns</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">in-list</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">a-ns</code><code class="racket"> </code><code class="racket symbol">b-ns</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket">
+      </code><code class="racket parenthesis">[</code><code class="racket symbol">i</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">in-naturals</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">name</code><code class="racket"> 
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">datum-&gt;syntax</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">string-&gt;symbol</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">format</code><code class="racket"> </code><code class="racket string">"ns-~a"</code><code class="racket"> </code><code class="racket symbol">i</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">eval-syntax</code><code class="racket"> </code><code class="racket constant">#`</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> #,</code><code class="racket symbol">name</code><code class="racket"> </code><code class="racket constant">#t</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">ns</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">eval-syntax</code><code class="racket"> </code><code class="racket constant">#`</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax</code><code class="racket"> #,</code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">make-rename-transformer</code><code class="racket">
+                                     </code><code class="racket constant">#'</code><code class="racket">#,</code><code class="racket symbol">name</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+               </code><code class="racket symbol">ns</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">resolve</code><code class="racket"> . </code><code class="racket symbol">nss</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">identifier-binding</code><code class="racket">
+   </code><code class="racket parenthesis">(</code><code class="racket symbol">for/fold</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+             </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">ns</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">in-list</code><code class="racket"> </code><code class="racket symbol">nss</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">namespace-syntax-introduce</code><code class="racket"> </code><code class="racket symbol">x</code><code class="racket"> </code><code class="racket symbol">ns</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+   </code><code class="racket constant">0</code><code class="racket">
+   </code><code class="racket constant">#t</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">resolve</code><code class="racket"> </code><code class="racket symbol">a-ns</code><code class="racket"> </code><code class="racket symbol">b-ns</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">resolve</code><code class="racket"> </code><code class="racket symbol">b-ns</code><code class="racket"> </code><code class="racket symbol">a-ns</code><code class="racket parenthesis">)</code></pre></div>
+   <p>输出<span><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket symbol">ns-0.1</code><code class="racket parenthesis">)</code></span>和<span><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket symbol">ns-1.1</code><code class="racket parenthesis">)</code></span>。这就是“multi scope”添加顺序对binding解析的影响。</p>
+   <p><span><code class="racket symbol">syntax-debug-info</code></span>结果的<span><code class="racket symbol">fallbacks</code></span>项也是由此而来。</p>
+   <p>这个设计是为了方便syntax对象在多个命名空间里使用。</p>
+   <h2 id="实例仿local-expandcapture-lifts">实例：仿local-expand/capture-lifts</h2>
+   <p>Racket的<span><code class="racket symbol">local-expand/capture-lifts</code></span>可以用来分隔不同的语言，但若想要用于其他的用途，就不太适合了。因为它会无条件捕获其他的lift，与正常的使用相互干扰。</p>
+   <p>这里通过模仿<span><code class="racket symbol">local-expand/capture-lifts</code></span>来展示如何维护正确的scope。</p>
+   <h3 id="基本框架">基本框架</h3>
+   <p>首先确定api：</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">&lt;...&gt;</code><code class="racket parenthesis">)</code><code class="racket">
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand/capture</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">[</code><code class="racket symbol">intdef-ctx</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket symbol">&lt;...&gt;</code><code class="racket parenthesis">)</code></pre></div>
+   <p>基本上和<span><code class="racket symbol">syntax-local-lift-expression</code></span>和<span><code class="racket symbol">local-expand/capture-lifts</code></span>类似，为了简化，这里限定只做expression context下的完全展开。</p>
+   <p>然后，<span><code class="racket symbol">lift</code></span>需要添加binding，Racket中能动态添加binding的机制就是first class intdef-ctx。所以<span><code class="racket symbol">local-expand/capture</code></span>需要告诉<span><code class="racket symbol">lift</code></span>目标的first class intdef-ctx，并且记录<span><code class="racket symbol">expr</code></span>，在展开结束后填到返回的syntax对象里。</p>
+   <p>可以用parameter来指示记录的位置：</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">current-lift-context</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">make-parameter</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+   <p><span><code class="racket symbol">current-lift-context</code></span>的类型是</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket parenthesis">(</code><code class="racket symbol">Parameter</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">Pairof</code><code class="racket"> </code><code class="racket symbol">Internal-Definition-Context</code><code class="racket"> 
+                   </code><code class="racket parenthesis">(</code><code class="racket symbol">Boxof</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">Listof</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">Pairof</code><code class="racket"> </code><code class="racket symbol">Identifier</code><code class="racket"> </code><code class="racket symbol">Syntax</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+   <p>填写<span><code class="racket symbol">lift</code></span>和<span><code class="racket symbol">local-expand/capture</code></span>的实现和测试代码：</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket">#lang racket
+</code><code class="racket parenthesis">(</code><code class="racket symbol">module</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket"> </code><code class="racket symbol">racket/base</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">require</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">for-template</code><code class="racket"> </code><code class="racket symbol">racket/base</code><code class="racket parenthesis">)</code><code class="racket">
+           </code><code class="racket symbol">racket/match</code><code class="racket parenthesis">)</code><code class="racket">
+  
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">provide</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">all-defined-out</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">current-lift-context</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">make-parameter</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">match-define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">current-lift-context</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">car</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">generate-temporaries</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-bind-syntaxes</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">set-box!</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket">
+              </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+                    </code><code class="racket parenthesis">(</code><code class="racket symbol">unbox</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket">
+
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand/capture</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">[</code><code class="racket symbol">intdef-ctx</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-make-definition-context</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">box</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">expanded</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">parameterize</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">current-lift-context</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+        </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">expression</code><code class="racket"> </code><code class="racket symbol">null</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">intdef-ctx</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">with-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">]</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">reverse</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">unbox</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket">
+                  </code><code class="racket parenthesis">[</code><code class="racket symbol">expanded</code><code class="racket"> </code><code class="racket symbol">expanded</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+          </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+          </code><code class="racket symbol">...</code><code class="racket">
+          </code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+            </code><code class="racket symbol">expanded</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">require</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">for-syntax</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">a</code><code class="racket"> </code><code class="racket symbol">syntax/transformer</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">liftme</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-case</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">_</code><code class="racket"> </code><code class="racket symbol">a</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket"> </code><code class="racket symbol">c</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">begin</code><code class="racket">
+       </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">a1</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket symbol">a</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+       </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">b1</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+       </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">c1</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket symbol">c</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+       </code><code class="racket constant">#`</code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> #,</code><code class="racket symbol">a1</code><code class="racket"> #,</code><code class="racket symbol">b1</code><code class="racket"> #,</code><code class="racket symbol">c1</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define-syntax</code><code class="racket"> </code><code class="racket symbol">capme</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">make-expression-transformer</code><code class="racket">
+   </code><code class="racket parenthesis">(</code><code class="racket symbol">λ</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">stx</code><code class="racket parenthesis">)</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-case</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+       </code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">_</code><code class="racket"> </code><code class="racket symbol">form</code><code class="racket parenthesis">)</code><code class="racket">
+        </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand/capture</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket symbol">form</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">capme</code><code class="racket">
+ </code><code class="racket parenthesis">(</code><code class="racket symbol">apply</code><code class="racket"> </code><code class="racket symbol">+</code><code class="racket">
+        </code><code class="racket parenthesis">(</code><code class="racket symbol">liftme</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">add1</code><code class="racket"> </code><code class="racket constant">0</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">2</code><code class="racket"> </code><code class="racket constant">3</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+   <p>得到<span><code class="racket symbol">identifier</code><code class="racket"> </code><code class="racket symbol">used</code><code class="racket"> </code><code class="racket symbol">out</code><code class="racket"> </code><code class="racket symbol">of</code><code class="racket"> </code><code class="racket symbol">context:</code><code class="racket"> #&lt;syntax </code><code class="racket symbol">temp1&gt;</code></span></p>
+   <h3 id="修复scope问题">修复scope问题</h3>
+   <p>上面的”out of context“意味着<span><code class="racket symbol">temp1</code></span>解析到了环境中没有的binding。</p>
+   <p>哪些binding从环境中消失了？是first class intdef-ctx，local-expand结束后，其binding即不存在于环境了，但由于”全局表“的存在，仍能被解析到。既然出现了这个错误，那就表明结果中<span><code class="racket symbol">temp1</code></span>的定义比ctx里的少了scope，或者<span><code class="racket symbol">temp1</code></span>的定义比使用多了scope。</p>
+   <ol>
+    <li>
+     <p>ctx中的binding多了其 <em>inside-edge scope</em> ，即intdef scope，可以用<span><code class="racket symbol">internal-definition-context-introduce</code></span>添加。</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">    </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">internal-definition-context-introduce</code><code class="racket">
+       </code><code class="racket symbol">ctx</code><code class="racket">
+       </code><code class="racket parenthesis">(</code><code class="racket symbol">car</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">generate-temporaries</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+     <p>仍旧是<span><code class="racket symbol">identifier</code><code class="racket"> </code><code class="racket symbol">used</code><code class="racket"> </code><code class="racket symbol">out</code><code class="racket"> </code><code class="racket symbol">of</code><code class="racket"> </code><code class="racket symbol">context:</code><code class="racket"> #&lt;syntax </code><code class="racket symbol">temp1&gt;</code></span>。</p></li>
+    <li>
+     <p>通过Macro Stepper可以发现：<span><code class="racket symbol">temp1</code></span>的定义比使用多了macro scope，<span><code class="racket symbol">temp1</code></span>的定义所用的 <em>identifier</em> 是<span><code class="racket symbol">lift</code></span>直接传送给<span><code class="racket symbol">local-expand/capture</code></span>的，所以这个scope是只能是<span><code class="racket symbol">capme</code></span>展开结束后加入的。</p>
+     <p>既然在结果中，<span><code class="racket symbol">temp1</code></span>的定义和使用都是宏引入的，为什么只有定义带上了macro scope呢？</p>
+     <p>因为<span><code class="racket symbol">local-expand</code></span>。<span><code class="racket symbol">local-expand</code></span>前后也会反转当前的macro scope和use-site scope，所以<span><code class="racket symbol">temp1</code></span>的使用最终不带有<span><code class="racket symbol">capme</code></span>的macro scope，而只有<span><code class="racket symbol">liftme</code></span>的macro scope。</p>
+     <p>反转定义中的scope：</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">    </code><code class="racket parenthesis">(</code><code class="racket symbol">with-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">]</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">reverse</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">unbox</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket">
+                  </code><code class="racket parenthesis">[</code><code class="racket symbol">expanded</code><code class="racket"> </code><code class="racket symbol">expanded</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">with-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-introduce</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+        </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+            </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+            </code><code class="racket symbol">...</code><code class="racket">
+            </code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+              </code><code class="racket symbol">expanded</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div>
+     <p>得到<span><code class="racket symbol">temp1:</code><code class="racket"> </code><code class="racket symbol">identifier</code><code class="racket constant">'</code><code class="racket symbol">s</code><code class="racket"> </code><code class="racket symbol">binding</code><code class="racket"> </code><code class="racket symbol">is</code><code class="racket"> </code><code class="racket symbol">ambiguous</code></span>。</p></li>
+    <li>
+     <p>在DrRacket中点开错误信息，看到类似如下的binding信息：</p>
+     <pre><code>temp1: identifier's binding is ambiguous
+  context...:
+   #(67091 macro) #(67097 local) #(67098 intdef) #(67107 local)
+   #(67108 intdef) [common scopes]
+  matching binding...:
+   local
+   #(67091 macro) [common scopes]
+  matching binding...:
+   local
+   #(67097 local) #(67098 intdef) [common scopes]
+  common scopes...:
+   #(67088 intdef) #(67092 macro) in: temp1</code></pre>
+     <p>不难看出第一个binding是ctx中的binding，第二个是结果中<span><code class="racket symbol">temp1</code></span>的定义。也就是说ctx的binding也带有<span><code class="racket symbol">liftme</code></span>的macro scope。</p>
+     <p>这是由于<span><code class="racket symbol">syntax-local-bind-syntaxes</code></span>也会反转当前的macro scope，所以：</p>
+     <div class="outer">
+      <pre class="brush: racket"><code class="racket">    </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-bind-syntaxes</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-introduce</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket parenthesis">)</code></pre></div></li></ol>
+   <p>通过上面的修改，这个程序输出<span><code class="racket constant">6</code></span>。</p>
+   <p>最终代码如下：</p>
+   <div class="outer">
+    <pre class="brush: racket"><code class="racket">#lang racket/base
+</code><code class="racket parenthesis">(</code><code class="racket symbol">require</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">for-template</code><code class="racket"> </code><code class="racket symbol">racket/base</code><code class="racket parenthesis">)</code><code class="racket">
+         </code><code class="racket symbol">racket/match</code><code class="racket parenthesis">)</code><code class="racket">
+  
+</code><code class="racket parenthesis">(</code><code class="racket symbol">provide</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">all-defined-out</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">current-lift-context</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">make-parameter</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">lift</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">match-define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">current-lift-context</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">internal-definition-context-introduce</code><code class="racket">
+     </code><code class="racket symbol">ctx</code><code class="racket">
+     </code><code class="racket parenthesis">(</code><code class="racket symbol">car</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">generate-temporaries</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-bind-syntaxes</code><code class="racket">
+   </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-introduce</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket constant">#f</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">set-box!</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket">
+            </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">list</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+                  </code><code class="racket parenthesis">(</code><code class="racket symbol">unbox</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket symbol">id</code><code class="racket parenthesis">)</code><code class="racket">
+
+</code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand/capture</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket parenthesis">[</code><code class="racket symbol">intdef-ctx</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-make-definition-context</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">box</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">expanded</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">parameterize</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">current-lift-context</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket parenthesis">(</code><code class="racket symbol">local-expand</code><code class="racket"> </code><code class="racket symbol">stx</code><code class="racket"> </code><code class="racket constant">'</code><code class="racket symbol">expression</code><code class="racket"> </code><code class="racket symbol">null</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">cons</code><code class="racket"> </code><code class="racket symbol">ctx</code><code class="racket"> </code><code class="racket symbol">intdef-ctx</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket">
+    
+  </code><code class="racket parenthesis">(</code><code class="racket symbol">with-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">]</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">reverse</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">unbox</code><code class="racket"> </code><code class="racket symbol">b</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket">
+                </code><code class="racket parenthesis">[</code><code class="racket symbol">expanded</code><code class="racket"> </code><code class="racket symbol">expanded</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+    </code><code class="racket parenthesis">(</code><code class="racket symbol">with-syntax</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">[</code><code class="racket parenthesis">(</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket symbol">syntax-local-introduce</code><code class="racket"> </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">...</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">]</code><code class="racket parenthesis">)</code><code class="racket">
+      </code><code class="racket constant">#'</code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+          </code><code class="racket parenthesis">(</code><code class="racket symbol">define</code><code class="racket"> </code><code class="racket symbol">id</code><code class="racket"> </code><code class="racket symbol">expr</code><code class="racket parenthesis">)</code><code class="racket">
+          </code><code class="racket symbol">...</code><code class="racket">
+          </code><code class="racket parenthesis">(</code><code class="racket symbol">let</code><code class="racket"> </code><code class="racket parenthesis">(</code><code class="racket parenthesis">)</code><code class="racket">
+            </code><code class="racket symbol">expanded</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code><code class="racket parenthesis">)</code></pre></div></div></body></html>
