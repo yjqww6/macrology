@@ -152,9 +152,9 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 注意这里的`args-scoped`，需要使用`internal-definition-context-introduce`让`args`带上`param-ctx`的scope，然后body的名字才能解析到新的定义。
 
-这是因为`args`是从宏的参数提供的，原本不含有`param-ctx`的scope。而`syntax-local-bind-syntaxes`会把自己的scope添加到创建的 _binding_ 中。
+这是因为`args`是从宏的参数提供的，原本不含有`param-ctx`的scope。而`syntax-local-bind-syntaxes`会把intdef-ctx参数的scope添加到创建的 _binding_ 中。
 
-因此，如果直接将`args`放入结果中，最终的scope set不是`param-ctx`对应的 _binding_ 的scope set的超集，将导致“ambigious binding”。
+因此，如果直接将`args`放入结果中，最终的scope set不是`param-ctx`里对应的 _binding_ 的scope set的超集，将导致“ambigious binding”。
 
 相对地，后面`syntax-local-bind-syntaxes`所用的 _identifier_ 是从展开结果中获取的，需要`syntax-local-identifier-as-binding`。
 
