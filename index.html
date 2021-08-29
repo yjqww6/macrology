@@ -1,0 +1,87 @@
+
+<html>
+ <head>
+  <title>macrology</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <style>body {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  font-family: "Open Sans","Clear Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: rgb(51,51,51);
+}
+div#whole {
+  margin: 10px;
+}
+h1,h2 {
+  border-bottom: solid thin lightgray;
+}
+ol,ul {
+  margin: 0.8em 0;
+  padding-left: 30px;
+}
+div.outer {
+  border: solid 1px rgb(243,244,246);
+  border-radius: 3px;
+  margin: 10px 0 10px 0;
+}
+pre {
+  margin: 0;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  background: rgb(246,248,250);
+  border: solid 1px rgb(239,241,242);
+  border-radius: 3px;
+  line-height: 1.3;
+}
+code.racket {
+  font-family: 'Fira-Mono', monospace;
+}
+code.parenthesis {
+  color: rgb(132,60,36);
+}
+code.symbol {
+  color: rgb(38, 38, 128);
+}
+code.hash-colon-keyword {
+  color: rgb(132, 60, 36);
+}
+code.string,code.constant {
+  color: rgb(41, 128, 38);
+}
+code.comment,code.sexp-comment {
+  color: rgb(192, 116, 31);
+}</style></head>
+ <body>
+  <div id="whole">
+   <h1 id="macrology">macrology</h1>
+   <p>这个仓库的主题是Racket的宏系统，主要目的是收集并记录编写宏过程中一些常见的技巧和模式。</p>
+   <p>Racket社区中有大量关于宏的知识技巧处于口口相传或是过于碎片化的状态，并没有很好地写成文字和索引。</p>
+   <p>这里不提供入门教程，相关资料，Racket的或是Scheme的，已经有很多了：</p>
+   <ul>
+    <li><a href="https://docs.racket-lang.org/guide/macros.html">Racket Guide - Macros</a></li>
+    <li><a href="http://www.greghendershott.com/fear-of-macros/">Fear of Macros</a></li>
+    <li><a href="https://docs.racket-lang.org/syntax/stxparse-intro.html">https://docs.racket-lang.org/syntax/stxparse-intro.html</a></li>
+    <li><a href="https://www.cs.utah.edu/plt/scope-sets/">Binding as Sets of Scopes</a>的1&ndash;3节</li></ul>
+   <h2 id="目录">目录</h2>
+   <h3 id="一些用法">一些用法</h3>
+   <ul>
+    <li>TODO Racket宏特性概述</li>
+    <li><a href="draw-arrow.html">如何让DrRacket正确地画出箭头</a></li>
+    <li><a href="local-expand.html">local-expand该怎么用</a></li>
+    <li><a href="compenv.html">如何设置编译期信息</a></li>
+    <li><a href="intdef-ctx.html">如何使用First Class Internal Definition Context</a></li>
+    <li><a href="intdef-ctx-old.html">如何使用First Class Internal Definition Context(旧)</a></li></ul>
+   <h3 id="疑难分析">疑难分析</h3>
+   <ul>
+    <li><a href="phase-match.html">Phase 与 identifier的匹配</a></li>
+    <li><a href="scope.html">Scope和Binding</a></li>
+    <li><a href="Extensible%20Macros.html">可扩展的宏</a></li></ul>
+   <h2 id="其他资料">其他资料</h2>
+   <ul>
+    <li><a href="http://www.schemeworkshop.org/2011/papers/Barzilay2011.pdf">Keeping it Clean with Syntax Parameters</a></li>
+    <li><a href="https://www2.ccs.neu.edu/racket/pubs/cf-sp09.pdf">Debugging Hygienic Macros</a></li>
+    <li><a href="https://www2.ccs.neu.edu/racket/pubs/c-jfp12.pdf">Fortifying macros</a></li>
+    <li><a href="https://www2.ccs.neu.edu/racket/pubs/scheme2007-ctf.pdf">Advanced Macrology and the Implementation of Typed Scheme</a></li></ul></div></body></html>
