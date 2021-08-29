@@ -150,6 +150,8 @@
 
 如果还要再进一步拆开里面的syntax对象，需要先对其使用`syntax-disarm`，再对返回值使用`syntax-rearm`。`inspector`使用module声明时的inspector，可通过`(variable-reference->module-declaration-inspector (#%variable-reference))`获得。
 
+补充：8.2.0.4之后，不再需要使用`syntax-disarm`。
+
 ## 使用示例
 
 如果要写这样一个宏`(let-box ([x rhs]) body ...)`：如果`x`在`body`里没有被`set!`过，那么就跟普通的`let`一样；如果被`set!`过了，那么`x`被放到box里，并且所有对x的引用变成`unbox` ，所有对`x`的赋值变成`set-box!`。

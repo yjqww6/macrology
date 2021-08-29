@@ -21,6 +21,7 @@ Racket社区中有大量关于宏的知识技巧处于口口相传或是过于�
 * [local-expand该怎么用](https://github.com/yjqww6/macrology/blob/master/local-expand.md)
 * [如何设置编译期信息](https://github.com/yjqww6/macrology/blob/master/compenv.md)
 * [如何使用First Class Internal Definition Context](https://github.com/yjqww6/macrology/blob/master/intdef-ctx.md)
+* [如何使用First Class Internal Definition Context(旧)](https://github.com/yjqww6/macrology/blob/master/intdef-ctx-old.md)
 
 
 ### 疑难分析

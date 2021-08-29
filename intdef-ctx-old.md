@@ -1,9 +1,5 @@
 # 如何使用First Class Internal Definition Context
 
-注：本文使用8.2.0.7引入的新api。
-
-
-
 Racket的 _first class internal definition context_ 是一个利器，主要用途有：
 
 * 可以用来对定义进行变换：
@@ -75,10 +71,10 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 接下来定义`body`的 _intdef-ctx_ ：
 
 ```racket
-(define body-ctx (syntax-local-make-definition-context param-ctx))
+(define body-ctx (syntax-local-make-definition-context))
 ```
 
-这里的`parent-ctx`是`param-ctx`，因为`body`中的 _binding_ 需要访问`args`。
+这里`parent-ctx`为什么是默认的`#f`，不是`param-ctx`呢？因为`parent-ctx`中的 _binding_ 默认不可见，作为代替，后面展开的时候传一个list。
 
 
 
@@ -88,13 +84,12 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 (define ctx (list (gensym)))
 (define (expand stx)
   (local-expand
-   (internal-definition-context-add-scopes param-ctx stx)
-    ctx
-    (syntax->list #'(begin define-values define-syntaxes))
-    body-ctx))
+   stx ctx
+   (syntax->list #'(begin define-values define-syntaxes))
+   (list body-ctx param-ctx)))
 ```
 
-因为`body`的定义不需对外可见，`context-v`使用`(list (gensym))`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是 _intdef-ctx_ 展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的“ignore”宏），才会添加别的。因为`parent-ctx`的scope不会自动添加到`stx`中，这里需要手动调用`internal-definition-context-add-scopes`添加。
+因为`body`的定义不需对外可见，`context-v`使用`(list (gensym))`，否则可以用`generate-expand-context`。然后因为遇到的定义可能会相互或递归引用，必须部分展开，这里的`stop-ids`这三基本上是 _intdef-ctx_ 展开不可少的，如果要其他特殊功能（例如，一个标记不需要变成结构体字段的定义的“ignore”宏），才会添加别的。`body-ctx`和`param-ctx`两个环境都要访问，因此都要传进去。
 
 #### 递归展开
 
@@ -125,17 +120,10 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 ```racket
 [(define-values (ids ...) expr)
- #:with (bd ...) (stx-map as-binding #'(ids ...))
+ #:with (bd ...) (stx-map syntax-local-identifier-as-binding #'(ids ...))
  (syntax-local-bind-syntaxes (syntax->list #'(bd ...)) #f body-ctx)
  (set! defined-ids (append (syntax->list #'(bd ...)) defined-ids))
  #'(define-values (bd ...) expr)]
-```
-
-`as-binding`的定义为
-
-```racket
-(define (as-binding id)
-  (syntax-local-identifier-as-binding id body-ctx))
 ```
 
 这里就需要对`body-ctx`操作了。首先`syntax-local-identifier-as-binding`是去除`ids`的 _use-site scope_ ，为什么需要这个步骤呢？因为每次`local-expand`可能引入不同的 _use-site scope_ ，要使`ids`对其他定义可见，必须要去除 _use-site scope_ 。然后，用`syntax-local-bind-syntaxes`将去除了 _use-site scope_ 的名字添加到`body-ctx`中。
@@ -144,7 +132,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 ```racket
 [(define-syntaxes (ids ...) expr)
- #:with (bd ...) (stx-map as-binding #'(ids ...))
+ #:with (bd ...) (stx-map syntax-local-identifier-as-binding #'(ids ...))
  #:with rhs (local-transformer-expand #'expr 'expression null body-ctx)
  (syntax-local-bind-syntaxes (syntax->list #'(bd ...)) #'rhs body-ctx)
  #'(define-syntaxes (bd ...) rhs)]
@@ -162,7 +150,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 
 按照要求的结构返回syntax对象。
 
-注意这里的`args-scoped`，需要使用`internal-definition-context-add-scopes`让`args`带上`param-ctx`的scope，然后body的名字才能解析到新的定义。
+注意这里的`args-scoped`，需要使用`internal-definition-context-introduce`让`args`带上`param-ctx`的scope，然后body的名字才能解析到新的定义。
 
 这是因为`args`是从宏的参数提供的，原本不含有`param-ctx`的scope。而`syntax-local-bind-syntaxes`会把intdef-ctx参数的scope添加到创建的 _binding_ 中。
 
@@ -174,7 +162,7 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
 #:with ctor-body <上面展开的结果>
 #:with (field ...) defined-ids
 #:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
-#:with args-scoped (internal-definition-context-add-scopes param-ctx #'args)
+#:with args-scoped (internal-definition-context-introduce param-ctx #'args)
 #'(begin (struct name (field ...))
          (define (ctor . args-scoped)
            ctor-body
@@ -192,23 +180,19 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
   [(_ (name:id . args:formals) body:expr ...+)
    #:do
    [(define param-ctx (syntax-local-make-definition-context))
-    (define body-ctx (syntax-local-make-definition-context param-ctx))
+    (define body-ctx (syntax-local-make-definition-context))
     (syntax-local-bind-syntaxes (syntax->list #'args.params) #f param-ctx)
     (define ctx (list (gensym)))
     (define (expand stx)
       (local-expand
-       (internal-definition-context-add-scopes param-ctx stx)
-       ctx
+       stx ctx
        (syntax->list #'(begin define-values define-syntaxes))
-       body-ctx))
+       (list body-ctx param-ctx)))
     (define defined-ids '())
     
     (define-syntax-rule (syntax/track form)
       (syntax-case this-syntax ()
-        [(head . _) (syntax-track-origin #'form this-syntax #'head)]))
-
-    (define (as-binding id)
-      (syntax-local-identifier-as-binding id body-ctx))]
+        [(head . _) (syntax-track-origin #'form this-syntax #'head)]))]
    
    #:with ctor-body
    (let loop ([stx #'(begin body ...)])
@@ -217,19 +201,19 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
         #:with (expanded-form ...) (stx-map loop #'(form ...))
         (syntax/track (begin expanded-form ...))]
        [(define-values (ids ...) expr)
-        #:with (bd ...) (stx-map as-binding #'(ids ...))
+        #:with (bd ...) (stx-map syntax-local-identifier-as-binding #'(ids ...))
         (syntax-local-bind-syntaxes (syntax->list #'(bd ...)) #f body-ctx)
         (set! defined-ids (append (syntax->list #'(bd ...)) defined-ids))
         (syntax/track (define-values (bd ...) expr))]
        [(define-syntaxes (ids ...) expr)
-        #:with (bd ...) (stx-map as-binding #'(ids ...))
+        #:with (bd ...) (stx-map syntax-local-identifier-as-binding #'(ids ...))
         #:with rhs (local-transformer-expand #'expr 'expression null body-ctx)
         (syntax-local-bind-syntaxes (syntax->list #'(bd ...)) #'rhs body-ctx)
         (syntax/track (define-syntaxes (bd ...) rhs))]
        [form #'form]))
    #:with (field ...) defined-ids
    #:with ctor (format-id #'name "make-~a" #'name #:subs? #t)
-   #:with args-scoped (internal-definition-context-add-scopes param-ctx #'args)
+   #:with args-scoped (internal-definition-context-introduce param-ctx #'args)
    #'(begin (struct name (field ...))
             (define (ctor . args-scoped)
               ctor-body
@@ -251,3 +235,10 @@ Racket的 _first class internal definition context_ 是一个利器，主要用�
           (foo-z f)))
 '(1 3 5)
 ```
+
+
+
+## 其他事项
+
+* 目前相关API中没有 _outside-edge scope_ 的处理，在未来可能会调整，见<https://github.com/racket/racket/issues/3251>和[Scope和Binding](https://github.com/yjqww6/macrology/blob/master/scope.md)。
+
